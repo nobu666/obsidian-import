@@ -28,6 +28,7 @@ trap 'echo ""; echo "中断しました。"; exit 130' INT
 
 DONE=0
 FAIL=0
+FAILED_FILES=()
 for TXT in "$TRANSCRIPT_DIR"/*.txt; do
   [ -f "$TXT" ] || continue
   NAME=$(basename "$TXT")
@@ -59,6 +60,7 @@ source: (動画URL ※文字起こしヘッダのurlを使う)
     echo "  → 完了"
   else
     FAIL=$((FAIL + 1))
+    FAILED_FILES+=("$TXT")
     echo "  → 失敗"
   fi
 done
@@ -66,3 +68,22 @@ done
 echo ""
 echo "=== 完了 ==="
 echo "成功: ${DONE}件 / 失敗: ${FAIL}件"
+
+if [ ${#FAILED_FILES[@]} -gt 0 ]; then
+  echo ""
+  echo "=== 失敗したファイル ==="
+  for F in "${FAILED_FILES[@]}"; do
+    VIDEO_ID=$(basename "$F" .txt)
+    TITLE=$(head -1 "$F" | sed 's/^title: //')
+    echo "  - ${TITLE} (${VIDEO_ID})"
+    echo "    https://www.youtube.com/watch?v=${VIDEO_ID}"
+  done
+  echo ""
+  echo "対応方法:"
+  echo "  1. そのまま再実行（失敗分だけリトライされる）:"
+  echo "     ~/scripts/recipe"
+  echo "  2. 文字起こしからやり直す（文字起こし品質が原因の場合）:"
+  echo "     rm ${TRANSCRIPT_DIR}/<video_id>.txt"
+  echo "     ~/scripts/recipe \"https://www.youtube.com/watch?v=<video_id>\""
+  echo "  3. 動画を直接見てObsidianに手動で書く"
+fi
