@@ -111,18 +111,40 @@ class TestDownloadAudio:
         assert transcribe.download_audio(video) is None
 
 
+# --- is_hallucinated ---
+
+
+class TestIsHallucinated:
+    def test_normal_text(self):
+        text = "今日は鶏肉を使った料理を紹介します。材料は鶏もも肉二枚と塩コショウです。まず鶏肉を一口大に切って、塩コショウで下味をつけます。フライパンに油を熱して中火で焼いていきます。"
+        assert transcribe.is_hallucinated(text) is False
+
+    def test_repeated_phrase(self):
+        assert transcribe.is_hallucinated("なんなん" * 50) is True
+
+    def test_repeated_dots(self):
+        assert transcribe.is_hallucinated("222" * 100) is True
+
+    def test_too_short(self):
+        assert transcribe.is_hallucinated("短い") is True
+
+    def test_mostly_punctuation(self):
+        text = "。、…・！？" * 30 + "あ"
+        assert transcribe.is_hallucinated(text) is True
+
+
 # --- transcribe_audio ---
 
 
 class TestTranscribeAudio:
-    def _mock_mlx_whisper(self, monkeypatch, text="こんにちは"):
+    def _mock_mlx_whisper(self, monkeypatch, text="今日は鶏肉を使った料理を紹介します。材料は鶏もも肉二枚と塩コショウです。まず鶏肉を一口大に切ってフライパンで焼いていきます。"):
         mock_module = types.ModuleType("mlx_whisper")
         mock_module.transcribe = MagicMock(return_value={"text": text})
         monkeypatch.setitem(sys.modules, "mlx_whisper", mock_module)
         return mock_module
 
     def test_success(self, monkeypatch):
-        self._mock_mlx_whisper(monkeypatch, text="材料：卵2個")
+        self._mock_mlx_whisper(monkeypatch, text="材料は卵2個と砂糖大さじ1と醤油小さじ1です。まず卵をボウルに割り入れてよく溶きほぐします。フライパンに油を熱して中火で焼いていきます。表面が固まったら巻いていきましょう。")
         audio_path = transcribe.AUDIO_TMP_DIR / "t1.mp3"
         audio_path.write_text("fake")
         video = {"id": "t1", "title": "卵焼き", "url": "https://example.com/t1"}
@@ -134,7 +156,7 @@ class TestTranscribeAudio:
         content = result.read_text()
         assert "title: 卵焼き" in content
         assert "video_id: t1" in content
-        assert "材料：卵2個" in content
+        assert "材料は卵2個" in content
 
     def test_atomic_write_no_partial_on_failure(self, monkeypatch):
         self._mock_mlx_whisper(monkeypatch)
@@ -150,6 +172,14 @@ class TestTranscribeAudio:
         assert not transcript.exists()
         tmp_files = list(transcribe.TRANSCRIPT_DIR.glob("*.tmp"))
         assert len(tmp_files) == 0
+
+    def test_hallucinated_returns_none(self, monkeypatch):
+        self._mock_mlx_whisper(monkeypatch, text="なんなん" * 50)
+        audio_path = transcribe.AUDIO_TMP_DIR / "t_hal.mp3"
+        audio_path.write_text("fake")
+        video = {"id": "t_hal", "title": "test", "url": "https://example.com"}
+        assert transcribe.transcribe_audio(audio_path, video) is None
+        assert not (transcribe.TRANSCRIPT_DIR / "t_hal.txt").exists()
 
     def test_whisper_error_returns_none(self, monkeypatch):
         mock_module = types.ModuleType("mlx_whisper")
