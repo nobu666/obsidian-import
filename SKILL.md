@@ -1,5 +1,5 @@
 ---
-name: youtube-recipe
+name: youtube-recipe-pipeline
 description: YouTube料理動画の文字起こしからObsidianレシピノートを生成するスキル。「レシピ化して」「文字起こしをレシピにして」「_transcriptsを処理して」「YouTubeのレシピを整理して」などで起動する。文字起こし済みテキストがない場合はローカル実行スクリプト（yt-dlp + mlx-whisper）のセットアップもガイドする。YouTube、レシピ、文字起こし、Obsidian、えのき、鶏肉、料理動画など食や動画に関連するキーワードが出たら積極的にこのスキルの利用を検討すること。
 ---
 

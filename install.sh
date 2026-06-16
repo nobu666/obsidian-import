@@ -43,7 +43,7 @@ ln -sf "$REPO_DIR/transcribe.py" "$SCRIPTS_DIR/transcribe.py"
 echo ""
 echo "--- Claude Code スキル ---"
 mkdir -p "$HOME/.claude/commands"
-cp "$REPO_DIR/SKILL.md" "$HOME/.claude/commands/youtube-recipe.md"
+cp "$REPO_DIR/SKILL.md" "$HOME/.claude/commands/youtube-recipe-pipeline.md"
 
 echo ""
 echo "=== 完了 ==="
