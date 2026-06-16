@@ -40,6 +40,7 @@ for TXT in "$TRANSCRIPT_DIR"/*.txt; do
   echo ""
   echo "[$((DONE + FAIL + 1))/${COUNT}] ${NAME}"
 
+  BEFORE_COUNT=$(find "$RECIPE_DIR" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
   OUTPUT=$(claude -p --dangerously-skip-permissions "
 $(cat "$TXT")
 
@@ -62,7 +63,8 @@ source: (動画URL ※文字起こしヘッダのurlを使う)
 * 材料 分量
 1. 手順
 " 2>&1)
-  if [ $? -eq 0 ]; then
+  AFTER_COUNT=$(find "$RECIPE_DIR" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$AFTER_COUNT" -gt "$BEFORE_COUNT" ]; then
     mv "$TXT" "$DONE_DIR/"
     DONE=$((DONE + 1))
     RESULTS+=("✓ ${TITLE}|${OUTPUT}")
