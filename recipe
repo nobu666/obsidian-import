@@ -51,8 +51,7 @@ source: (動画URL ※文字起こしヘッダのurlを使う)
 * 材料 分量
 1. 手順
 "; then
-    mkdir -p "${TRANSCRIPT_DIR}/done"
-    mv "$TXT" "${TRANSCRIPT_DIR}/done/"
+    rm "$TXT"
     DONE=$((DONE + 1))
     echo "  → 完了"
   else

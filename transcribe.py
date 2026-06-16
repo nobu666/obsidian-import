@@ -24,7 +24,6 @@ OBSIDIAN_RECIPE_DIR = Path.home() / "Library/Mobile Documents/com~apple~CloudDoc
 TRANSCRIPT_DIR = OBSIDIAN_RECIPE_DIR / "_transcripts"
 AUDIO_TMP_DIR = Path("/tmp/yt_recipe_audio")
 WHISPER_MODEL = "mlx-community/whisper-medium-mlx"
-DONE_DIR = TRANSCRIPT_DIR / "done"
 
 
 def setup_dirs():
@@ -114,8 +113,8 @@ def transcribe_audio(audio_path, video):
 
 
 def is_processed(video_id):
-    """文字起こし済み or レシピ変換済み（done/に移動済み）か判定"""
-    return (TRANSCRIPT_DIR / f"{video_id}.txt").exists() or (DONE_DIR / f"{video_id}.txt").exists()
+    """文字起こし済みか判定"""
+    return (TRANSCRIPT_DIR / f"{video_id}.txt").exists()
 
 
 def check_mlx_whisper():

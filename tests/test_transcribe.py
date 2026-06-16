@@ -15,14 +15,11 @@ import transcribe
 def override_dirs(tmp_path, monkeypatch):
     transcript_dir = tmp_path / "_transcripts"
     transcript_dir.mkdir()
-    done_dir = transcript_dir / "done"
-    done_dir.mkdir()
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
 
     monkeypatch.setattr(transcribe, "OBSIDIAN_RECIPE_DIR", tmp_path)
     monkeypatch.setattr(transcribe, "TRANSCRIPT_DIR", transcript_dir)
-    monkeypatch.setattr(transcribe, "DONE_DIR", done_dir)
     monkeypatch.setattr(transcribe, "AUDIO_TMP_DIR", audio_dir)
 
 
@@ -80,9 +77,6 @@ class TestIsProcessed:
         (transcribe.TRANSCRIPT_DIR / "vid1.txt").write_text("test")
         assert transcribe.is_processed("vid1") is True
 
-    def test_done_exists(self):
-        (transcribe.DONE_DIR / "vid2.txt").write_text("test")
-        assert transcribe.is_processed("vid2") is True
 
 
 # --- download_audio ---
@@ -230,7 +224,7 @@ class TestMain:
 
     def test_skips_processed(self, monkeypatch):
         videos = [{"id": "already", "title": "t", "url": "u"}]
-        (transcribe.DONE_DIR / "already.txt").write_text("done")
+        (transcribe.TRANSCRIPT_DIR / "already.txt").write_text("done")
         self._setup_mocks(monkeypatch, videos)
         monkeypatch.setattr(sys, "argv", ["transcribe.py", "https://example.com"])
         transcribe.main()
