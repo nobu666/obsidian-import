@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-REPO_DIR="$HOME/repos/youtube-recipe-pipeline"
+REPO_DIR="$HOME/repos/youtube-to-obsidian"
 SCRIPTS_DIR="$HOME/scripts"
 VENV_DIR="$SCRIPTS_DIR/.venv"
 
-echo "=== youtube-recipe-pipeline インストール ==="
+echo "=== youtube-to-obsidian インストール ==="
 
 # 依存ツール
 echo ""
@@ -21,7 +21,7 @@ if [ -d "$REPO_DIR/.git" ]; then
 else
   echo "クローン中..."
   mkdir -p "$(dirname "$REPO_DIR")"
-  git clone https://github.com/nobu666/youtube-recipe-pipeline.git "$REPO_DIR"
+  git clone https://github.com/nobu666/youtube-to-obsidian.git "$REPO_DIR"
 fi
 
 # venv
@@ -43,7 +43,7 @@ ln -sf "$REPO_DIR/transcribe.py" "$SCRIPTS_DIR/transcribe.py"
 echo ""
 echo "--- Claude Code スキル ---"
 mkdir -p "$HOME/.claude/commands"
-cp "$REPO_DIR/SKILL.md" "$HOME/.claude/commands/youtube-recipe-pipeline.md"
+cp "$REPO_DIR/SKILL.md" "$HOME/.claude/commands/youtube-to-obsidian.md"
 
 echo ""
 echo "=== 完了 ==="

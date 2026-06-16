@@ -1,11 +1,11 @@
-# youtube-recipe-pipeline
+# youtube-to-obsidian
 
 YouTube料理動画の音声を文字起こしし、Obsidianのレシピノートに自動変換するツール。
 
 ## インストール
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/nobu666/youtube-recipe-pipeline-pipeline/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/nobu666/youtube-to-obsidian/main/install.sh | bash
 ```
 
 brew、venv、シンボリックリンク、Claude Code スキルまで一括セットアップ。既存環境では更新のみ行う。
@@ -29,7 +29,7 @@ brew、venv、シンボリックリンク、Claude Code スキルまで一括セ
 brew install yt-dlp ffmpeg python@3.12
 
 # リポジトリのクローン
-git clone https://github.com/nobu666/youtube-recipe-pipeline-pipeline.git ~/repos/youtube-recipe-pipeline-pipeline
+git clone https://github.com/nobu666/youtube-to-obsidian.git ~/repos/youtube-to-obsidian
 
 # venv 作成と mlx-whisper インストール
 python3.12 -m venv ~/scripts/.venv
@@ -37,12 +37,12 @@ python3.12 -m venv ~/scripts/.venv
 
 # シンボリックリンクを作成
 mkdir -p ~/scripts
-ln -s ~/repos/youtube-recipe-pipeline-pipeline/recipe ~/scripts/recipe
-ln -s ~/repos/youtube-recipe-pipeline-pipeline/transcribe.py ~/scripts/transcribe.py
+ln -s ~/repos/youtube-to-obsidian/recipe ~/scripts/recipe
+ln -s ~/repos/youtube-to-obsidian/transcribe.py ~/scripts/transcribe.py
 
 # Claude Code のスキルをインストール（任意）
 mkdir -p ~/.claude/commands
-cp ~/repos/youtube-recipe-pipeline-pipeline/SKILL.md ~/.claude/commands/youtube-recipe-pipeline.md
+cp ~/repos/youtube-to-obsidian/SKILL.md ~/.claude/commands/youtube-to-obsidian.md
 ```
 
 `recipe` 内のパスを自分の環境に合わせて編集:
@@ -122,11 +122,11 @@ rm <vault>/.transcripts/*.txt
 
 ## Claude Code スキル
 
-`SKILL.md` を `~/.claude/commands/youtube-recipe-pipeline.md` に配置すると、Claude Code のどのセッションからでも `/youtube-recipe-pipeline` コマンドでレシピ変換を実行できる。`.transcripts/` 内の文字起こしファイルを読み取り、対話的にレシピ化する。
+`SKILL.md` を `~/.claude/commands/youtube-to-obsidian.md` に配置すると、Claude Code のどのセッションからでも `/youtube-to-obsidian` コマンドでレシピ変換を実行できる。`.transcripts/` 内の文字起こしファイルを読み取り、対話的にレシピ化する。
 
 ```bash
 # インストール
-cp ~/repos/youtube-recipe-pipeline-pipeline/SKILL.md ~/.claude/commands/youtube-recipe-pipeline.md
+cp ~/repos/youtube-to-obsidian/SKILL.md ~/.claude/commands/youtube-to-obsidian.md
 ```
 
 ## 応用例

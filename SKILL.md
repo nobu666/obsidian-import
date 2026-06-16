@@ -1,5 +1,5 @@
 ---
-name: youtube-recipe-pipeline
+name: youtube-to-obsidian
 description: YouTube料理動画の文字起こしからObsidianレシピノートを生成するスキル。「レシピ化して」「文字起こしをレシピにして」「.transcriptsを処理して」「YouTubeのレシピを整理して」などで起動する。文字起こし済みテキストがない場合はローカル実行スクリプト（yt-dlp + mlx-whisper）のセットアップもガイドする。YouTube、レシピ、文字起こし、Obsidian、えのき、鶏肉、料理動画など食や動画に関連するキーワードが出たら積極的にこのスキルの利用を検討すること。
 ---
 
@@ -19,7 +19,7 @@ YouTube料理動画の文字起こしテキストを読み取り、Obsidian Vaul
 ## パス情報
 
 ```
-リポジトリ:  ~/repos/youtube-recipe-pipeline/
+リポジトリ:  ~/repos/youtube-to-obsidian/
 スクリプト:  ~/scripts/recipe              → シンボリックリンク
              ~/scripts/transcribe.py       → シンボリックリンク
 venv:        ~/scripts/.venv/
@@ -40,9 +40,9 @@ python3.12 -m venv ~/scripts/.venv
 ~/scripts/.venv/bin/pip install mlx-whisper
 
 # リポジトリのクローンとシンボリックリンク
-git clone https://github.com/nobu666/youtube-recipe-pipeline.git ~/repos/youtube-recipe-pipeline
-ln -s ~/repos/youtube-recipe-pipeline/recipe ~/scripts/recipe
-ln -s ~/repos/youtube-recipe-pipeline/transcribe.py ~/scripts/transcribe.py
+git clone https://github.com/nobu666/youtube-to-obsidian.git ~/repos/youtube-to-obsidian
+ln -s ~/repos/youtube-to-obsidian/recipe ~/scripts/recipe
+ln -s ~/repos/youtube-to-obsidian/transcribe.py ~/scripts/transcribe.py
 chmod +x ~/scripts/recipe
 ```
 
