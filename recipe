@@ -32,7 +32,7 @@ for TXT in "$TRANSCRIPT_DIR"/*.txt; do
   echo ""
   echo "[$((DONE + FAIL + 1))/${COUNT}] ${NAME}"
 
-  if claude -p "
+  if claude -p --dangerously-skip-permissions "
 $(cat "$TXT")
 
 ---
