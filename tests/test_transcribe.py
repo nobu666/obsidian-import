@@ -154,9 +154,24 @@ class TestGetSubtitles:
             return _make_run_result("")
 
         monkeypatch.setattr(subprocess, "run", fake_run)
-        result = transcribe.get_subtitles(video)
-        assert "こんにちは" in result
-        assert "今日は料理します" in result
+        text, lang = transcribe.get_subtitles(video)
+        assert "こんにちは" in text
+        assert "今日は料理します" in text
+        assert lang is None
+
+    def test_found_english(self, monkeypatch, tmp_path):
+        video = {"id": "sub_en", "url": "https://example.com"}
+        srt_content = "1\n00:00:01,000 --> 00:00:03,000\nHello\n\n2\n00:00:03,000 --> 00:00:05,000\nToday we cook\n"
+
+        def fake_run(cmd, **kw):
+            if "en" in cmd:
+                Path(f"/tmp/yt_subs_{video['id']}.en.srt").write_text(srt_content)
+            return _make_run_result("")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        text, lang = transcribe.get_subtitles(video)
+        assert "Hello" in text
+        assert lang == "en"
 
     def test_not_found(self, monkeypatch):
         video = {"id": "nosub1", "url": "https://example.com"}
@@ -164,7 +179,9 @@ class TestGetSubtitles:
             subprocess, "run",
             lambda *a, **kw: _make_run_result(""),
         )
-        assert transcribe.get_subtitles(video) is None
+        text, lang = transcribe.get_subtitles(video)
+        assert text is None
+        assert lang is None
 
 
 class TestGetDescription:
@@ -221,7 +238,7 @@ class TestTranscribeVideo:
         """字幕があればWhisperを使わず字幕を使う"""
         video = {"id": "t_sub", "title": "テスト", "url": "https://example.com"}
         sub_text = "字幕からの内容です。今日はもずく酢を作ります。材料はもずく280グラムとお酢大さじ2です。"
-        monkeypatch.setattr(transcribe, "get_subtitles", lambda v: sub_text)
+        monkeypatch.setattr(transcribe, "get_subtitles", lambda v: (sub_text, None))
 
         result = transcribe.transcribe_video(video)
         assert result is not None
@@ -233,7 +250,7 @@ class TestTranscribeVideo:
         """字幕がない場合はWhisperにフォールバック"""
         self._mock_mlx_whisper(monkeypatch, text="材料は卵2個と砂糖大さじ1と醤油小さじ1です。まず卵をボウルに割り入れてよく溶きほぐします。フライパンに油を熱して中火で焼いていきます。表面が固まったら巻いていきましょう。")
         self._mock_download(monkeypatch)
-        monkeypatch.setattr(transcribe, "get_subtitles", lambda v: None)
+        monkeypatch.setattr(transcribe, "get_subtitles", lambda v: (None, None))
         video = {"id": "t1", "title": "卵焼き", "url": "https://example.com/t1"}
 
         result = transcribe.transcribe_video(video)
@@ -246,7 +263,7 @@ class TestTranscribeVideo:
         """Whisperがハルシネーションした場合は説明欄にフォールバック"""
         self._mock_mlx_whisper(monkeypatch, text="なんなん" * 50)
         self._mock_download(monkeypatch)
-        monkeypatch.setattr(transcribe, "get_subtitles", lambda v: None)
+        monkeypatch.setattr(transcribe, "get_subtitles", lambda v: (None, None))
         desc = "説明欄の内容です。材料：もずく280g、お酢大さじ2、黒糖粉大さじ1、醤油大さじ1"
         monkeypatch.setattr(transcribe, "get_description", lambda v: desc)
         video = {"id": "t_desc", "title": "test", "url": "https://example.com"}
@@ -259,7 +276,7 @@ class TestTranscribeVideo:
         """字幕なし・Whisperハルシネーション・説明欄なし → None"""
         self._mock_mlx_whisper(monkeypatch, text="なんなん" * 50)
         self._mock_download(monkeypatch)
-        monkeypatch.setattr(transcribe, "get_subtitles", lambda v: None)
+        monkeypatch.setattr(transcribe, "get_subtitles", lambda v: (None, None))
         monkeypatch.setattr(transcribe, "get_description", lambda v: None)
         video = {"id": "t_fail", "title": "test", "url": "https://example.com"}
 
@@ -271,7 +288,7 @@ class TestTranscribeVideo:
         mock_module.transcribe = MagicMock(side_effect=RuntimeError("GPU error"))
         monkeypatch.setitem(sys.modules, "mlx_whisper", mock_module)
         self._mock_download(monkeypatch)
-        monkeypatch.setattr(transcribe, "get_subtitles", lambda v: None)
+        monkeypatch.setattr(transcribe, "get_subtitles", lambda v: (None, None))
         desc = "説明欄フォールバック。材料：もずく280g、お酢大さじ2、黒糖粉大さじ1、醤油大さじ1"
         monkeypatch.setattr(transcribe, "get_description", lambda v: desc)
         video = {"id": "t3", "title": "test", "url": "https://example.com"}

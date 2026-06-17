@@ -99,25 +99,28 @@ def is_hallucinated(text, threshold=0.4):
 
 
 def get_subtitles(video):
-    """YouTube字幕を取得（手動字幕 → 自動生成の順で試行）"""
-    for sub_args in [
-        ["--write-subs", "--sub-langs", "ja"],
-        ["--write-auto-subs", "--sub-langs", "ja"],
+    """YouTube字幕を取得（日本語手動 → 日本語自動 → 英語手動 → 英語自動の順で試行）"""
+    for lang, sub_args in [
+        ("ja", ["--write-subs", "--sub-langs", "ja"]),
+        ("ja", ["--write-auto-subs", "--sub-langs", "ja"]),
+        ("en", ["--write-subs", "--sub-langs", "en"]),
+        ("en", ["--write-auto-subs", "--sub-langs", "en"]),
     ]:
         result = subprocess.run(
             ["yt-dlp", "--skip-download", *sub_args,
              "--convert-subs", "srt", "-o", "/tmp/yt_subs_%(id)s", video["url"]],
             capture_output=True, text=True
         )
-        srt_path = Path(f"/tmp/yt_subs_{video['id']}.ja.srt")
+        srt_path = Path(f"/tmp/yt_subs_{video['id']}.{lang}.srt")
         if srt_path.exists():
             text = srt_path.read_text(encoding="utf-8")
             srt_path.unlink()
             lines = [l.strip() for l in text.splitlines()
                      if l.strip() and not re.match(r"^\d+$", l.strip())
                      and not re.match(r"\d{2}:\d{2}:\d{2}", l.strip())]
-            return " ".join(lines)
-    return None
+            source_lang = "en" if lang == "en" else None
+            return " ".join(lines), source_lang
+    return None, None
 
 
 def get_description(video):
@@ -153,10 +156,15 @@ def transcribe_video(video):
     """字幕優先で文字起こし（字幕なし時のみWhisperにフォールバック）"""
     # 1. YouTube字幕を試す（高速）
     print(f"  字幕を確認中...")
-    sub_text = get_subtitles(video)
+    sub_text, source_lang = get_subtitles(video)
     if sub_text:
-        print(f"  字幕から取得しました")
-        return save_transcript(video, sub_text, source="youtube-subtitles")
+        source = "youtube-subtitles"
+        if source_lang == "en":
+            source = "youtube-subtitles-en"
+            print(f"  英語字幕から取得しました")
+        else:
+            print(f"  字幕から取得しました")
+        return save_transcript(video, sub_text, source=source)
 
     # 2. Whisperで文字起こし（低速）
     print(f"  字幕なし。Whisperで文字起こし中...")
