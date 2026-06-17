@@ -148,5 +148,5 @@ cp ~/repos/youtube-to-obsidian/SKILL.md ~/.claude/commands/youtube-to-obsidian.m
 - mlx-whisper は Apple Silicon 専用。Intel Mac では動かない
 - Whisper large-v3 モデル（約3GB）を使用。初回実行時にダウンロードされる
 - 処理済みの動画はスキップされるので、中断しても再開可能
-- Whisperのハルシネーション（同一フレーズの繰り返し）は自動検出してスキップする
+- Whisperのハルシネーション（同一フレーズの繰り返し）は自動検出し、YouTube字幕→説明欄の順でフォールバックする。すべて失敗した場合のみスキップ
 - `MallocStackLogging` の警告が出ることがあるが無害
