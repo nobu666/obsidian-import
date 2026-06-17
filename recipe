@@ -10,9 +10,16 @@ if [ -z "$CAFFEINATED" ]; then
 fi
 
 URL="${1:-https://www.youtube.com/playlist?list=PLh4huXs8Qi9HkMIXptPbw2gIYUDNtqNic}"
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 SCRIPT="$HOME/scripts/transcribe.py"
 RECIPE_DIR="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Obsidian/Vault/レシピ"
 TRANSCRIPT_DIR="${RECIPE_DIR}/.transcripts"
+PROMPT_FILE="${SCRIPT_DIR}/prompt.txt"
+
+if [ ! -f "$PROMPT_FILE" ]; then
+  echo "エラー: プロンプトファイルが見つかりません: $PROMPT_FILE"
+  exit 1
+fi
 
 echo "=== Step 1/2: 文字起こし ==="
 if ! nice -n 10 "$HOME/scripts/.venv/bin/python3" "$SCRIPT" "$URL"; then
@@ -46,27 +53,12 @@ for TXT in "$TRANSCRIPT_DIR"/*.txt; do
   echo "[$((DONE + FAIL + 1))/${COUNT}] ${NAME}"
 
   BEFORE_COUNT=$(find "$RECIPE_DIR" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+  PROMPT=$(sed "s|{{OUTPUT_DIR}}|${RECIPE_DIR}|g" "$PROMPT_FILE")
   OUTPUT=$(nice -n 10 claude -p --dangerously-skip-permissions "
 $(cat "$TXT")
 
 ---
-上の文字起こしをObsidianレシピ形式に変換して ${RECIPE_DIR} に保存して。
-ファイル名は料理名.md にして。
-ルール:
-- 質問・確認・提案は一切しない。すべて自分で判断して完了まで進めること。
-- 文字起こしの品質が低くても、読み取れる範囲で最善のレシピを作る。
-- 内容が全く読み取れない場合だけファイルを作らず、その旨を1行で出力して終了。
-- 補足や注意点があれば、レシピファイル保存後に1〜2行で簡潔に報告する。
-
-フォーマット:
----
-created: (現在日時)
-updated: (現在日時)
-source: (動画URL ※文字起こしヘッダのurlを使う)
----
-# 料理名
-* 材料 分量
-1. 手順
+${PROMPT}
 " 2>&1)
   AFTER_COUNT=$(find "$RECIPE_DIR" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
   if [ "$AFTER_COUNT" -gt "$BEFORE_COUNT" ]; then

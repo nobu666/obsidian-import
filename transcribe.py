@@ -1,16 +1,8 @@
 #!/usr/bin/env python3
 """
-YouTube再生リストの動画を音声ダウンロード → Whisperで文字起こし。
-文字起こし結果はObsidianレシピフォルダ内の .transcripts/ に保存される。
-レシピへの変換は recipe スクリプト経由で Claude CLI が担当する。
-
-事前準備:
-  brew install yt-dlp ffmpeg
-  ~/scripts/.venv/bin/pip install mlx-whisper
-
-使い方:
-  ~/scripts/.venv/bin/python3 transcribe.py <再生リストURL>
-  ~/scripts/.venv/bin/python3 transcribe.py <動画URL>
+YouTube動画の音声をダウンロードし、Whisperで文字起こしする。
+結果はObsidian Vault内の .transcripts/ に保存される。
+構造化ノートへの変換は recipe スクリプト経由で Claude CLI が担当する。
 """
 
 import os
@@ -195,7 +187,7 @@ def transcribe_audio(audio_path, video):
 
 
 def is_processed(video_id):
-    """文字起こし済み or レシピ変換済み（done/に移動済み）か判定"""
+    """文字起こし済み or ノート変換済み（done/に移動済み）か判定"""
     return (TRANSCRIPT_DIR / f"{video_id}.txt").exists() or (DONE_DIR / f"{video_id}.txt").exists()
 
 
