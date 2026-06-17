@@ -203,83 +203,80 @@ class TestSaveTranscript:
         assert "source: youtube-description" in content
 
 
-class TestTranscribeAudio:
+class TestTranscribeVideo:
     def _mock_mlx_whisper(self, monkeypatch, text="今日は鶏肉を使った料理を紹介します。材料は鶏もも肉二枚と塩コショウです。まず鶏肉を一口大に切ってフライパンで焼いていきます。"):
         mock_module = types.ModuleType("mlx_whisper")
         mock_module.transcribe = MagicMock(return_value={"text": text})
         monkeypatch.setitem(sys.modules, "mlx_whisper", mock_module)
         return mock_module
 
-    def test_success(self, monkeypatch):
-        self._mock_mlx_whisper(monkeypatch, text="材料は卵2個と砂糖大さじ1と醤油小さじ1です。まず卵をボウルに割り入れてよく溶きほぐします。フライパンに油を熱して中火で焼いていきます。表面が固まったら巻いていきましょう。")
-        audio_path = transcribe.AUDIO_TMP_DIR / "t1.mp3"
-        audio_path.write_text("fake")
-        video = {"id": "t1", "title": "卵焼き", "url": "https://example.com/t1"}
+    def _mock_download(self, monkeypatch):
+        def fake_download(video):
+            path = transcribe.AUDIO_TMP_DIR / f"{video['id']}.mp3"
+            path.write_text("fake")
+            return path
+        monkeypatch.setattr(transcribe, "download_audio", fake_download)
 
-        result = transcribe.transcribe_audio(audio_path, video)
-
-        assert result is not None
-        assert result.exists()
-        content = result.read_text()
-        assert "title: 卵焼き" in content
-        assert "video_id: t1" in content
-        assert "材料は卵2個" in content
-
-    def test_hallucination_fallback_to_subtitles(self, monkeypatch):
-        self._mock_mlx_whisper(monkeypatch, text="なんなん" * 50)
-        audio_path = transcribe.AUDIO_TMP_DIR / "t_hal.mp3"
-        audio_path.write_text("fake")
-        video = {"id": "t_hal", "title": "test", "url": "https://example.com"}
-
+    def test_subtitles_preferred(self, monkeypatch):
+        """字幕があればWhisperを使わず字幕を使う"""
+        video = {"id": "t_sub", "title": "テスト", "url": "https://example.com"}
         sub_text = "字幕からの内容です。今日はもずく酢を作ります。材料はもずく280グラムとお酢大さじ2です。"
         monkeypatch.setattr(transcribe, "get_subtitles", lambda v: sub_text)
 
-        result = transcribe.transcribe_audio(audio_path, video)
+        result = transcribe.transcribe_video(video)
         assert result is not None
         content = result.read_text()
         assert "source: youtube-subtitles" in content
         assert "字幕からの内容" in content
 
-    def test_hallucination_fallback_to_description(self, monkeypatch):
-        self._mock_mlx_whisper(monkeypatch, text="なんなん" * 50)
-        audio_path = transcribe.AUDIO_TMP_DIR / "t_desc.mp3"
-        audio_path.write_text("fake")
-        video = {"id": "t_desc", "title": "test", "url": "https://example.com"}
+    def test_whisper_fallback_on_no_subtitles(self, monkeypatch):
+        """字幕がない場合はWhisperにフォールバック"""
+        self._mock_mlx_whisper(monkeypatch, text="材料は卵2個と砂糖大さじ1と醤油小さじ1です。まず卵をボウルに割り入れてよく溶きほぐします。フライパンに油を熱して中火で焼いていきます。表面が固まったら巻いていきましょう。")
+        self._mock_download(monkeypatch)
+        monkeypatch.setattr(transcribe, "get_subtitles", lambda v: None)
+        video = {"id": "t1", "title": "卵焼き", "url": "https://example.com/t1"}
 
+        result = transcribe.transcribe_video(video)
+        assert result is not None
+        content = result.read_text()
+        assert "title: 卵焼き" in content
+        assert "材料は卵2個" in content
+
+    def test_hallucination_fallback_to_description(self, monkeypatch):
+        """Whisperがハルシネーションした場合は説明欄にフォールバック"""
+        self._mock_mlx_whisper(monkeypatch, text="なんなん" * 50)
+        self._mock_download(monkeypatch)
         monkeypatch.setattr(transcribe, "get_subtitles", lambda v: None)
         desc = "説明欄の内容です。材料：もずく280g、お酢大さじ2、黒糖粉大さじ1、醤油大さじ1"
         monkeypatch.setattr(transcribe, "get_description", lambda v: desc)
+        video = {"id": "t_desc", "title": "test", "url": "https://example.com"}
 
-        result = transcribe.transcribe_audio(audio_path, video)
+        result = transcribe.transcribe_video(video)
         assert result is not None
-        content = result.read_text()
-        assert "source: youtube-description" in content
+        assert "source: youtube-description" in result.read_text()
 
     def test_all_fallbacks_fail(self, monkeypatch):
+        """字幕なし・Whisperハルシネーション・説明欄なし → None"""
         self._mock_mlx_whisper(monkeypatch, text="なんなん" * 50)
-        audio_path = transcribe.AUDIO_TMP_DIR / "t_fail.mp3"
-        audio_path.write_text("fake")
-        video = {"id": "t_fail", "title": "test", "url": "https://example.com"}
-
+        self._mock_download(monkeypatch)
         monkeypatch.setattr(transcribe, "get_subtitles", lambda v: None)
         monkeypatch.setattr(transcribe, "get_description", lambda v: None)
+        video = {"id": "t_fail", "title": "test", "url": "https://example.com"}
 
-        assert transcribe.transcribe_audio(audio_path, video) is None
+        assert transcribe.transcribe_video(video) is None
 
     def test_whisper_error_fallback(self, monkeypatch):
+        """Whisperエラー時は説明欄にフォールバック"""
         mock_module = types.ModuleType("mlx_whisper")
         mock_module.transcribe = MagicMock(side_effect=RuntimeError("GPU error"))
         monkeypatch.setitem(sys.modules, "mlx_whisper", mock_module)
-
-        audio_path = transcribe.AUDIO_TMP_DIR / "t3.mp3"
-        audio_path.write_text("fake")
+        self._mock_download(monkeypatch)
+        monkeypatch.setattr(transcribe, "get_subtitles", lambda v: None)
+        desc = "説明欄フォールバック。材料：もずく280g、お酢大さじ2、黒糖粉大さじ1、醤油大さじ1"
+        monkeypatch.setattr(transcribe, "get_description", lambda v: desc)
         video = {"id": "t3", "title": "test", "url": "https://example.com"}
 
-        desc = "説明欄フォールバック。材料：もずく280g、お酢大さじ2、黒糖粉大さじ1、醤油大さじ1"
-        monkeypatch.setattr(transcribe, "get_subtitles", lambda v: None)
-        monkeypatch.setattr(transcribe, "get_description", lambda v: desc)
-
-        result = transcribe.transcribe_audio(audio_path, video)
+        result = transcribe.transcribe_video(video)
         assert result is not None
         assert "source: youtube-description" in result.read_text()
 
@@ -309,21 +306,14 @@ class TestMain:
         if transcribe_results is None:
             transcribe_results = [True] * len(videos)
 
-        download_calls = iter(videos)
-        def fake_download(video):
-            path = transcribe.AUDIO_TMP_DIR / f"{video['id']}.mp3"
-            path.write_text("fake")
-            return path
-        monkeypatch.setattr(transcribe, "download_audio", fake_download)
-
         results_iter = iter(transcribe_results)
-        def fake_transcribe(audio_path, video):
+        def fake_transcribe(video):
             if next(results_iter):
                 path = transcribe.TRANSCRIPT_DIR / f"{video['id']}.txt"
                 path.write_text("content")
                 return path
             return None
-        monkeypatch.setattr(transcribe, "transcribe_audio", fake_transcribe)
+        monkeypatch.setattr(transcribe, "transcribe_video", fake_transcribe)
 
     def test_all_success(self, monkeypatch):
         videos = [{"id": "v1", "title": "t1", "url": "u1"}]

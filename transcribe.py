@@ -23,7 +23,7 @@ DEFAULT_OUTPUT_DIR = Path.home() / "Library/Mobile Documents/com~apple~CloudDocs
 OBSIDIAN_OUTPUT_DIR = DEFAULT_OUTPUT_DIR
 TRANSCRIPT_DIR = OBSIDIAN_OUTPUT_DIR / ".transcripts"
 AUDIO_TMP_DIR = Path("/tmp/yt_obsidian_audio")
-WHISPER_MODEL = "mlx-community/whisper-large-v3-mlx"
+WHISPER_MODEL = "mlx-community/whisper-large-v3-turbo"
 DONE_DIR = TRANSCRIPT_DIR / "done"
 
 
@@ -149,10 +149,22 @@ def save_transcript(video, text, source="whisper"):
     return transcript_path
 
 
-def transcribe_audio(audio_path, video):
-    """Whisperで文字起こし（失敗時は字幕・説明欄にフォールバック）"""
-    print(f"  文字起こし中...")
-    whisper_failed = False
+def transcribe_video(video):
+    """字幕優先で文字起こし（字幕なし時のみWhisperにフォールバック）"""
+    # 1. YouTube字幕を試す（高速）
+    print(f"  字幕を確認中...")
+    sub_text = get_subtitles(video)
+    if sub_text:
+        print(f"  字幕から取得しました")
+        return save_transcript(video, sub_text, source="youtube-subtitles")
+
+    # 2. Whisperで文字起こし（低速）
+    print(f"  字幕なし。Whisperで文字起こし中...")
+    audio_path = download_audio(video)
+    if not audio_path:
+        return None
+
+    text = None
     try:
         import mlx_whisper
         result = mlx_whisper.transcribe(
@@ -164,27 +176,22 @@ def transcribe_audio(audio_path, video):
         text = result["text"]
     except Exception as e:
         print(f"  文字起こしエラー: {e}")
-        whisper_failed = True
 
-    if not whisper_failed and not is_hallucinated(text):
+    audio_path.unlink(missing_ok=True)
+
+    if text is not None and not is_hallucinated(text):
         return save_transcript(video, text)
 
-    if not whisper_failed:
-        print(f"  ハルシネーション検出。フォールバックを試行...")
-
-    print(f"  字幕を確認中...")
-    sub_text = get_subtitles(video)
-    if sub_text:
-        print(f"  字幕から取得しました")
-        return save_transcript(video, sub_text, source="youtube-subtitles")
-
-    print(f"  説明欄を確認中...")
+    if text is not None:
+        print(f"  ハルシネーション検出。説明欄を確認中...")
+    else:
+        print(f"  説明欄を確認中...")
     desc_text = get_description(video)
     if desc_text:
         print(f"  説明欄から取得しました")
         return save_transcript(video, desc_text, source="youtube-description")
 
-    print(f"  フォールバックも失敗。スキップします。")
+    print(f"  すべて失敗。スキップします。")
     return None
 
 
@@ -237,16 +244,9 @@ def main():
             skipped += 1
             continue
 
-        audio_path = download_audio(video)
-        if not audio_path:
-            failed += 1
-            print()
-            continue
-
-        result = transcribe_audio(audio_path, video)
+        result = transcribe_video(video)
         if result:
             done += 1
-            audio_path.unlink(missing_ok=True)
         else:
             failed += 1
         print()
