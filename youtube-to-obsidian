@@ -148,17 +148,18 @@ if [ ${#FAILED_FILES[@]} -gt 0 ]; then
   echo ""
   echo "=== 失敗したファイル ==="
   for F in "${FAILED_FILES[@]}"; do
-    VIDEO_ID=$(basename "$F" .txt)
+    FILE_ID=$(basename "$F" .txt)
     TITLE=$(head -1 "$F" | sed 's/^title: //')
-    echo "  - ${TITLE} (${VIDEO_ID})"
-    echo "    https://www.youtube.com/watch?v=${VIDEO_ID}"
+    SOURCE_URL=$(grep '^url: ' "$F" | head -1 | sed 's/^url: //')
+    echo "  - ${TITLE} (${FILE_ID})"
+    [ -n "$SOURCE_URL" ] && echo "    ${SOURCE_URL}"
   done
   echo ""
   echo "対応方法:"
   echo "  1. そのまま再実行（失敗分だけリトライされる）:"
   echo "     ~/scripts/youtube-to-obsidian"
-  echo "  2. 文字起こしからやり直す（文字起こし品質が原因の場合）:"
-  echo "     rm \"${TRANSCRIPT_DIR}/<video_id>.txt\""
-  echo "     ~/scripts/youtube-to-obsidian \"https://www.youtube.com/watch?v=<video_id>\""
-  echo "  3. 動画を直接見てObsidianに手動で書く"
+  echo "  2. テキスト取得からやり直す:"
+  echo "     rm \"${TRANSCRIPT_DIR}/<id>.txt\""
+  echo "     ~/scripts/youtube-to-obsidian \"<URL>\""
+  echo "  3. 元のコンテンツを見てObsidianに手動で書く"
 fi

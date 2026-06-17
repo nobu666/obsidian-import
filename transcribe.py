@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
 YouTube動画の音声をダウンロードし、Whisperで文字起こしする。
+Web記事のテキスト抽出にも対応。
 結果はObsidian Vault内の .transcripts/ に保存される。
 構造化ノートへの変換は youtube-to-obsidian スクリプト経由で Claude CLI が担当する。
 """
 
 import argparse
+import hashlib
 import os
 import re
 import subprocess
@@ -14,6 +16,7 @@ import sys
 import tempfile
 import warnings
 from pathlib import Path
+from urllib.parse import urlparse
 
 os.environ["MALLOC_STACK_LOGGING"] = ""
 warnings.filterwarnings("ignore", message=".*unauthenticated.*HF Hub.*")
@@ -25,6 +28,15 @@ TRANSCRIPT_DIR = OBSIDIAN_OUTPUT_DIR / ".transcripts"
 AUDIO_TMP_DIR = Path("/tmp/yt_obsidian_audio")
 WHISPER_MODEL = "mlx-community/whisper-large-v3-turbo"
 DONE_DIR = TRANSCRIPT_DIR / "done"
+
+
+def is_youtube_url(url):
+    host = urlparse(url).hostname or ""
+    return any(h in host for h in ("youtube.com", "youtu.be", "youtube-nocookie.com"))
+
+
+def url_to_id(url):
+    return hashlib.sha256(url.encode()).hexdigest()[:12]
 
 
 def setup_dirs():
@@ -152,6 +164,143 @@ def save_transcript(video, text, source="whisper"):
     return transcript_path
 
 
+def _is_js_wall(text):
+    if not text:
+        return False
+    if "JavaScript is disabled" in text:
+        return True
+    stripped = re.sub(r"(Loading\.{0,3})+", "", text).strip()
+    if len(stripped) < 50:
+        return True
+    return False
+
+
+def fetch_with_trafilatura(url):
+    """trafilaturaでテキスト抽出を試みる。失敗時はNone"""
+    try:
+        import trafilatura
+    except ImportError:
+        return None, None
+    downloaded = trafilatura.fetch_url(url)
+    if not downloaded:
+        return None, None
+    text = trafilatura.extract(downloaded, include_links=False, include_images=False)
+    if not text or len(text.strip()) < 100 or _is_js_wall(text):
+        return None, None
+    meta = trafilatura.extract(downloaded, output_format="json")
+    title = json.loads(meta).get("title", "") if meta else ""
+    return text, title
+
+
+def fetch_with_playwright(url):
+    """Playwrightでヘッドレスブラウザ経由のテキスト抽出（JS必須サイト用）"""
+    try:
+        from playwright.sync_api import sync_playwright
+        import trafilatura
+    except ImportError as e:
+        print(f"  フォールバック不可: {e}")
+        return None, None
+    print(f"  ヘッドレスブラウザで取得中...")
+    try:
+        cookies = _get_browser_cookies(url)
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            ctx = browser.new_context()
+            if cookies:
+                ctx.add_cookies(cookies)
+            page = ctx.new_page()
+            page.goto(url, wait_until="domcontentloaded", timeout=15000)
+            page.wait_for_timeout(5000)
+            html = page.content()
+            browser.close()
+        text = trafilatura.extract(html, include_links=False, include_images=False)
+        if not text or len(text.strip()) < 100:
+            return None, None
+        meta = trafilatura.extract(html, output_format="json")
+        title = json.loads(meta).get("title", "") if meta else ""
+        return text, title
+    except Exception as e:
+        print(f"  ブラウザ取得エラー: {e}")
+        return None, None
+
+
+def _get_browser_cookies(url):
+    """ChromeからCookieを取得（rookiepy利用、なければ空リスト）"""
+    try:
+        import rookiepy
+    except ImportError:
+        return []
+    host = urlparse(url).hostname or ""
+    domains = [f".{host}"]
+    if host.startswith("www."):
+        domains.append(f".{host[4:]}")
+    # x.com / twitter.com の相互対応
+    if "x.com" in host:
+        domains.append(".twitter.com")
+    elif "twitter.com" in host:
+        domains.append(".x.com")
+    try:
+        raw = rookiepy.chrome(domains)
+    except Exception:
+        return []
+    return [{
+        "name": c["name"], "value": c["value"], "domain": c["domain"],
+        "path": c.get("path", "/"), "secure": c.get("secure", False),
+        "httpOnly": c.get("httpOnly", False),
+    } for c in raw]
+
+
+def resolve_article_url(url):
+    """X のツイートが Article へのリンクを含む場合、Article URL を返す"""
+    host = urlparse(url).hostname or ""
+    if "x.com" not in host and "twitter.com" not in host:
+        return url
+    if "/article/" in url:
+        return url
+    try:
+        import trafilatura
+        html = trafilatura.fetch_url(url)
+        if not html:
+            return url
+        import re as _re
+        match = _re.search(r'https://t\.co/[A-Za-z0-9]+', html)
+        if match:
+            import requests
+            resp = requests.head(match.group(), allow_redirects=True, timeout=10)
+            resolved = resp.url
+            if "/article/" in resolved or "/i/article/" in resolved:
+                print(f"  Article URL検出: {resolved}")
+                return resolved
+    except Exception:
+        pass
+    return url
+
+
+def fetch_article(url):
+    """Webページからテキストを抽出して .transcripts/ に保存"""
+    article_id = url_to_id(url)
+    if is_processed(article_id):
+        print(f"  スキップ（処理済み）")
+        return None
+
+    print(f"  記事を取得中...")
+    actual_url = resolve_article_url(url)
+    text, title = fetch_with_trafilatura(actual_url)
+    if not text:
+        text, title = fetch_with_playwright(actual_url)
+    if not text:
+        print(f"  テキストを抽出できませんでした")
+        return None
+
+    if not title:
+        first_line = text.strip().split("\n")[0].strip().rstrip(".")
+        title = first_line[:100] if len(first_line) > 10 else url
+    article = {"id": article_id, "title": title, "url": url}
+    path = save_transcript(article, text, source="web-article")
+    print(f"  完了: {title[:60]}")
+    return path
+
+
 def transcribe_video(video):
     """字幕優先で文字起こし（字幕なし時のみWhisperにフォールバック）"""
     # 1. YouTube字幕を試す（高速）
@@ -221,8 +370,8 @@ def check_mlx_whisper():
 def main():
     global OBSIDIAN_OUTPUT_DIR, TRANSCRIPT_DIR, DONE_DIR
 
-    parser = argparse.ArgumentParser(description="YouTube動画を文字起こしする")
-    parser.add_argument("url", help="YouTubeのURLまたは再生リストURL")
+    parser = argparse.ArgumentParser(description="YouTube動画の文字起こし / Web記事のテキスト抽出")
+    parser.add_argument("url", help="YouTubeのURL、再生リストURL、またはWeb記事のURL")
     parser.add_argument("-o", "--output-dir", help="出力先ディレクトリ")
     args = parser.parse_args()
     url = args.url
@@ -233,6 +382,13 @@ def main():
         DONE_DIR = TRANSCRIPT_DIR / "done"
 
     setup_dirs()
+
+    if not is_youtube_url(url):
+        print(f"Web記事として処理: {url}\n")
+        result = fetch_article(url)
+        if not result:
+            sys.exit(1)
+        return
 
     if not check_mlx_whisper():
         sys.exit(1)
