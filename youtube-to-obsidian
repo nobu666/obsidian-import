@@ -1,20 +1,42 @@
 #!/bin/bash
 # YouTube動画をObsidianノートに自動変換
 # 使い方:
-#   youtube-to-obsidian                           # デフォルトの再生リストを処理
-#   youtube-to-obsidian https://youtube.com/...   # 指定URLを処理
+#   youtube-to-obsidian                                    # デフォルトの再生リストを処理
+#   youtube-to-obsidian https://youtube.com/...            # 指定URLを処理
+#   youtube-to-obsidian -p prompt-lecture.txt <URL>        # プロンプトを指定
 
 # caffeinate で再帰呼び出し（スリープ防止）
 if [ -z "$CAFFEINATED" ]; then
   exec env CAFFEINATED=1 caffeinate -i "$0" "$@"
 fi
 
-URL="${1:-https://www.youtube.com/playlist?list=PLh4huXs8Qi9HkMIXptPbw2gIYUDNtqNic}"
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+PROMPT_FILE="${SCRIPT_DIR}/prompt.txt"
+
+while getopts "p:" opt; do
+  case $opt in
+    p)
+      if [ -f "$OPTARG" ]; then
+        PROMPT_FILE="$OPTARG"
+      elif [ -f "${SCRIPT_DIR}/${OPTARG}" ]; then
+        PROMPT_FILE="${SCRIPT_DIR}/${OPTARG}"
+      else
+        echo "エラー: プロンプトファイルが見つかりません: $OPTARG"
+        exit 1
+      fi
+      ;;
+    *)
+      echo "使い方: youtube-to-obsidian [-p prompt_file] [URL]"
+      exit 1
+      ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+URL="${1:-https://www.youtube.com/playlist?list=PLh4huXs8Qi9HkMIXptPbw2gIYUDNtqNic}"
 SCRIPT="$HOME/scripts/transcribe.py"
 OUTPUT_DIR="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Obsidian/Vault/レシピ"
 TRANSCRIPT_DIR="${OUTPUT_DIR}/.transcripts"
-PROMPT_FILE="${SCRIPT_DIR}/prompt.txt"
 
 if [ ! -f "$PROMPT_FILE" ]; then
   echo "エラー: プロンプトファイルが見つかりません: $PROMPT_FILE"
