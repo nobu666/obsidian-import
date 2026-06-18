@@ -30,7 +30,7 @@ echo "--- Python venv ---"
 if [ ! -d "$VENV_DIR" ]; then
   python3.12 -m venv "$VENV_DIR"
 fi
-"$VENV_DIR/bin/pip" install -q mlx-whisper markitdown
+"$VENV_DIR/bin/pip" install -q mlx-whisper "markitdown[all]"
 
 # シンボリックリンク
 echo ""
