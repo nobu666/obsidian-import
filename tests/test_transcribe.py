@@ -335,7 +335,7 @@ class TestMain:
     def test_all_success(self, monkeypatch):
         videos = [{"id": "v1", "title": "t1", "url": "u1"}]
         self._setup_mocks(monkeypatch, videos)
-        monkeypatch.setattr(sys, "argv", ["transcribe.py", "https://example.com"])
+        monkeypatch.setattr(sys, "argv", ["transcribe.py", "https://www.youtube.com/watch?v=test"])
         # main() should return normally on full success
         transcribe.main()
 
@@ -345,7 +345,7 @@ class TestMain:
             {"id": "v2", "title": "t2", "url": "u2"},
         ]
         self._setup_mocks(monkeypatch, videos, transcribe_results=[True, False])
-        monkeypatch.setattr(sys, "argv", ["transcribe.py", "https://example.com"])
+        monkeypatch.setattr(sys, "argv", ["transcribe.py", "https://www.youtube.com/watch?v=test"])
         with pytest.raises(SystemExit) as exc_info:
             transcribe.main()
         assert exc_info.value.code == 1
@@ -354,7 +354,7 @@ class TestMain:
         videos = [{"id": "already", "title": "t", "url": "u"}]
         (transcribe.TRANSCRIPT_DIR / "already.txt").write_text("done")
         self._setup_mocks(monkeypatch, videos)
-        monkeypatch.setattr(sys, "argv", ["transcribe.py", "https://example.com"])
+        monkeypatch.setattr(sys, "argv", ["transcribe.py", "https://www.youtube.com/watch?v=test"])
         transcribe.main()
 
     def test_no_args_exits(self, monkeypatch):
@@ -365,7 +365,7 @@ class TestMain:
 
     def test_missing_mlx_whisper_exits(self, monkeypatch):
         monkeypatch.setattr(transcribe, "check_mlx_whisper", lambda: False)
-        monkeypatch.setattr(sys, "argv", ["transcribe.py", "https://example.com"])
+        monkeypatch.setattr(sys, "argv", ["transcribe.py", "https://www.youtube.com/watch?v=test"])
         with pytest.raises(SystemExit) as exc_info:
             transcribe.main()
         assert exc_info.value.code == 1
