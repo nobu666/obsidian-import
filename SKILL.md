@@ -41,7 +41,7 @@ brew install yt-dlp ffmpeg python@3.12
 
 # venv 作成と依存インストール
 python3.12 -m venv ~/scripts/.venv
-~/scripts/.venv/bin/pip install mlx-whisper markitdown
+~/scripts/.venv/bin/pip install mlx-whisper "markitdown[all]"
 
 # リポジトリのクローンとシンボリックリンク
 git clone https://github.com/nobu666/obsidian-import.git ~/repos/obsidian-import
