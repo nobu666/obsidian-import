@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-REPO_DIR="$HOME/repos/obsidian-import"
+REPO_DIR="${INSTALL_DIR:-$HOME/repos}/obsidian-import"
 SCRIPTS_DIR="$HOME/scripts"
 VENV_DIR="$SCRIPTS_DIR/.venv"
 

@@ -6,9 +6,12 @@ YouTube動画・Web記事・ドキュメント（PDF/スライド等）をObsidi
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/nobu666/obsidian-import/main/install.sh | bash
+
+# クローン先を変えたい場合
+INSTALL_DIR=~/projects curl -fsSL https://raw.githubusercontent.com/nobu666/obsidian-import/main/install.sh | bash
 ```
 
-brew（yt-dlp, ffmpeg）、Python venv（mlx-whisper, markitdown）、シンボリックリンク、Claude Code スキルまで一括セットアップ。既存環境では更新のみ行う。
+brew（yt-dlp, ffmpeg）、Python venv（mlx-whisper, markitdown）、シンボリックリンク、Claude Code スキルまで一括セットアップ。既存環境では更新のみ行う。デフォルトのクローン先は `~/repos/obsidian-import`。
 
 ### 前提
 
