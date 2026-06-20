@@ -14,11 +14,13 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 PROMPTS_DIR="${SCRIPT_DIR}/prompts"
 PROMPT_FILE=""
+PROMPT_EXPLICIT=false
 OUTPUT_DIR_OVERRIDE=""
 
 while getopts "p:o:" opt; do
   case $opt in
     p)
+      PROMPT_EXPLICIT=true
       if [ -f "$OPTARG" ]; then
         PROMPT_FILE="$OPTARG"
       elif [ -f "${PROMPTS_DIR}/${OPTARG}" ]; then
@@ -26,6 +28,7 @@ while getopts "p:o:" opt; do
       elif [ -f "${PROMPTS_DIR}/${OPTARG}.txt" ]; then
         PROMPT_FILE="${PROMPTS_DIR}/${OPTARG}.txt"
       else
+        PROMPT_EXPLICIT=false
         echo "エラー: プロンプトファイルが見つかりません: $OPTARG"
         echo "利用可能なプロンプト:"
         ls "${PROMPTS_DIR}"/*.txt 2>/dev/null | while read -r f; do
@@ -90,6 +93,44 @@ is_youtube() {
   [[ "$1" =~ ^https?://(www\.)?(youtube\.com|youtu\.be)/ ]]
 }
 
+# プロンプトファイルからヘッダと本文を読み込み、変数にセット
+# 引数: プロンプトファイルパス
+# 出力: LOADED_PROMPT_BODY, LOADED_OUTPUT_DIR
+load_prompt_file() {
+  local pfile="$1"
+  LOADED_OUTPUT_DIR=""
+  if head -1 "$pfile" | grep -q '^output_dir:'; then
+    LOADED_OUTPUT_DIR=$(head -1 "$pfile" | sed 's/^output_dir: *//')
+    LOADED_OUTPUT_DIR="${LOADED_OUTPUT_DIR/#\~/$HOME}"
+    LOADED_PROMPT_BODY=$(sed '1,/^---$/d' "$pfile")
+  else
+    LOADED_PROMPT_BODY=$(cat "$pfile")
+  fi
+}
+
+# トランスクリプトの内容からプロンプト種別を推定
+classify_transcript() {
+  local txt="$1"
+  local excerpt
+  excerpt=$(head -c 1000 "$txt")
+  local result
+  result=$(echo "以下のテキストの冒頭を読んで、内容の種類を1単語で答えて。選択肢: recipe, lecture, tool, workout, article, default
+- recipe: 料理のレシピ・作り方
+- lecture: 講義・セミナー・対談・インタビュー
+- tool: ソフトウェアやツールの使い方・紹介
+- workout: トレーニング・エクササイズメニュー
+- article: Web記事・ブログ記事（YouTube以外のソース）
+- default: 上記に当てはまらないYouTube動画
+
+1単語だけ答えること。
+
+${excerpt}" | claude -p 2>&1 | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+  case "$result" in
+    recipe|lecture|tool|workout|article) echo "$result" ;;
+    *) echo "default" ;;
+  esac
+}
+
 echo "=== Step 1/2: テキスト抽出 ==="
 echo "出力先: ${OUTPUT_DIR}"
 if is_youtube "$INPUT"; then
@@ -131,7 +172,31 @@ for TXT in "$TRANSCRIPT_DIR"/*.txt; do
   echo ""
   echo "[$((DONE + FAIL + 1))/${COUNT}] ${NAME}"
 
-  PROMPT=$(echo "$PROMPT_BODY" | sed "s|{{OUTPUT_DIR}}|${OUTPUT_DIR}|g")
+  # -p 未指定時はトランスクリプトを分類してプロンプトを自動選択
+  if [ "$PROMPT_EXPLICIT" = false ]; then
+    CLASSIFIED=$(classify_transcript "$TXT")
+    CLASSIFIED_FILE="${PROMPTS_DIR}/${CLASSIFIED}.txt"
+    if [ ! -f "$CLASSIFIED_FILE" ]; then
+      CLASSIFIED_FILE="${PROMPTS_DIR}/default.txt"
+      CLASSIFIED="default"
+    fi
+    echo "  プロンプト: ${CLASSIFIED}"
+    load_prompt_file "$CLASSIFIED_FILE"
+    CURRENT_PROMPT_BODY="$LOADED_PROMPT_BODY"
+    if [ -n "$OUTPUT_DIR_OVERRIDE" ]; then
+      CURRENT_OUTPUT_DIR="${OUTPUT_DIR_OVERRIDE/#\~/$HOME}"
+    elif [ -n "$LOADED_OUTPUT_DIR" ]; then
+      CURRENT_OUTPUT_DIR="$LOADED_OUTPUT_DIR"
+    else
+      CURRENT_OUTPUT_DIR="$HOME/Documents/Obsidian/Vault/YouTube"
+    fi
+    mkdir -p "$CURRENT_OUTPUT_DIR"
+  else
+    CURRENT_PROMPT_BODY="$PROMPT_BODY"
+    CURRENT_OUTPUT_DIR="$OUTPUT_DIR"
+  fi
+
+  PROMPT=$(echo "$CURRENT_PROMPT_BODY" | sed "s|{{OUTPUT_DIR}}|${CURRENT_OUTPUT_DIR}|g")
   FULL_PROMPT="${PROMPT}
 
 ---
@@ -152,7 +217,7 @@ $(cat "$TXT")
     if [[ "$LINE" =~ ^FILENAME:\ (.+) ]]; then
       # 前のファイルがあれば書き出し
       if [ -n "$CURRENT_FILE" ]; then
-        echo "$CURRENT_CONTENT" > "${OUTPUT_DIR}/${CURRENT_FILE}"
+        echo "$CURRENT_CONTENT" > "${CURRENT_OUTPUT_DIR}/${CURRENT_FILE}"
         FILE_COUNT=$((FILE_COUNT + 1))
       fi
       # 新しいファイル名を取得しバリデーション
@@ -175,7 +240,7 @@ ${LINE}"
   done <<< "$OUTPUT"
   # 最後のファイルを書き出し
   if [ -n "$CURRENT_FILE" ]; then
-    echo "$CURRENT_CONTENT" > "${OUTPUT_DIR}/${CURRENT_FILE}"
+    echo "$CURRENT_CONTENT" > "${CURRENT_OUTPUT_DIR}/${CURRENT_FILE}"
     FILE_COUNT=$((FILE_COUNT + 1))
   fi
   [ "$FILE_COUNT" -gt 0 ] && WROTE_FILE=true
