@@ -64,6 +64,32 @@ assert_eq "パス区切り含む(絶対パス) → 拒否" "invalid" "$(validate
 assert_eq "..含む → 拒否" "invalid" "$(validate_filename "..test.md")"
 assert_eq "隠しファイル風の..含む → 拒否" "invalid" "$(validate_filename "..zshrc.md")"
 
+# --- ローカル音声/動画判定テスト ---
+echo ""
+echo "=== ローカル音声/動画判定 ==="
+
+is_audio_file() {
+  local lower
+  lower=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+  [[ -f "$1" && "$lower" =~ \.(mp3|m4a|m4b|wav|aac|flac|ogg|opus|mp4|mov|m4v)$ ]]
+}
+
+_AUDIO_TMP=$(mktemp -d)
+touch "$_AUDIO_TMP/voice.m4a" "$_AUDIO_TMP/clip.mp4" "$_AUDIO_TMP/doc.pdf" "$_AUDIO_TMP/REC.MP3"
+is_audio_file "$_AUDIO_TMP/voice.m4a" && r=yes || r=no
+assert_eq "音声ファイル(.m4a) → yes" "yes" "$r"
+is_audio_file "$_AUDIO_TMP/clip.mp4" && r=yes || r=no
+assert_eq "動画ファイル(.mp4) → yes" "yes" "$r"
+is_audio_file "$_AUDIO_TMP/REC.MP3" && r=yes || r=no
+assert_eq "大文字拡張子(.MP3) → yes" "yes" "$r"
+is_audio_file "$_AUDIO_TMP/doc.pdf" && r=yes || r=no
+assert_eq "非音声(.pdf) → no" "no" "$r"
+is_audio_file "$_AUDIO_TMP/missing.mp3" && r=yes || r=no
+assert_eq "存在しないファイル → no" "no" "$r"
+is_audio_file "https://youtu.be/abc" && r=yes || r=no
+assert_eq "URL → no" "no" "$r"
+rm -rf "$_AUDIO_TMP"
+
 # --- 本文抽出テスト ---
 echo ""
 echo "=== 本文抽出 ==="

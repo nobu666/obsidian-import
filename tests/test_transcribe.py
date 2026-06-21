@@ -220,6 +220,81 @@ class TestSaveTranscript:
         assert "source: youtube-description" in content
 
 
+class TestIsAudioFile:
+    def test_audio_extension(self, tmp_path):
+        f = tmp_path / "voice.m4a"
+        f.write_text("x")
+        assert transcribe.is_audio_file(str(f)) is True
+
+    def test_video_extension(self, tmp_path):
+        f = tmp_path / "clip.mp4"
+        f.write_text("x")
+        assert transcribe.is_audio_file(str(f)) is True
+
+    def test_uppercase_extension(self, tmp_path):
+        f = tmp_path / "VOICE.MP3"
+        f.write_text("x")
+        assert transcribe.is_audio_file(str(f)) is True
+
+    def test_non_audio_extension(self, tmp_path):
+        f = tmp_path / "doc.pdf"
+        f.write_text("x")
+        assert transcribe.is_audio_file(str(f)) is False
+
+    def test_missing_file(self, tmp_path):
+        assert transcribe.is_audio_file(str(tmp_path / "nope.mp3")) is False
+
+    def test_url_is_not_file(self):
+        assert transcribe.is_audio_file("https://youtu.be/abc.mp3") is False
+
+
+class TestTranscribeLocalFile:
+    def _mock_mlx_whisper(self, monkeypatch, text):
+        mock_module = types.ModuleType("mlx_whisper")
+        mock_module.transcribe = MagicMock(return_value={"text": text})
+        monkeypatch.setitem(sys.modules, "mlx_whisper", mock_module)
+        return mock_module
+
+    def test_local_audio_transcribed(self, monkeypatch, tmp_path):
+        self._mock_mlx_whisper(monkeypatch, "これはローカル音声ファイルの文字起こし結果です。会議では新機能の方針について話し合い、来週までに試作を作ることになりました。担当は山田さんです。")
+        audio = tmp_path / "会議メモ.m4a"
+        audio.write_text("fake")
+
+        result = transcribe.transcribe_local_file(str(audio))
+        assert result is not None
+        content = result.read_text()
+        assert "source: local-audio" in content
+        assert "title: 会議メモ.m4a" in content
+        assert "url: file://" in content
+        assert "ローカル音声ファイルの文字起こし" in content
+
+    def test_id_is_hashed_not_stem(self, monkeypatch, tmp_path):
+        """ファイル名そのものでなくハッシュIDで保存される（ファイル名安全性）"""
+        self._mock_mlx_whisper(monkeypatch, "これはテスト用の文字起こし結果です。ファイル名ではなくハッシュからIDを生成することを確認するための十分な長さの本文を用意しています。")
+        audio = tmp_path / "a b_c.mp3"
+        audio.write_text("fake")
+        result = transcribe.transcribe_local_file(str(audio))
+        expected_id = transcribe.url_to_id(f"file://{audio.resolve()}")
+        assert result.name == f"{expected_id}.txt"
+
+    def test_skips_when_processed(self, monkeypatch, tmp_path):
+        self._mock_mlx_whisper(monkeypatch, "一回目の文字起こし結果です。同じファイルを二回処理したときに二回目がスキップされることを確認するための十分な長さの本文を含めています。")
+        audio = tmp_path / "dup.wav"
+        audio.write_text("fake")
+        first = transcribe.transcribe_local_file(str(audio))
+        assert first is not None
+        # 2回目は処理済みでスキップ（None）
+        second = transcribe.transcribe_local_file(str(audio))
+        assert second is None
+
+    def test_hallucination_returns_none(self, monkeypatch, tmp_path):
+        self._mock_mlx_whisper(monkeypatch, "ああ" * 50)
+        audio = tmp_path / "noise.mp3"
+        audio.write_text("fake")
+        result = transcribe.transcribe_local_file(str(audio))
+        assert result is None
+
+
 class TestTranscribeVideo:
     def _mock_mlx_whisper(self, monkeypatch, text="今日は鶏肉を使った料理を紹介します。材料は鶏もも肉二枚と塩コショウです。まず鶏肉を一口大に切ってフライパンで焼いていきます。"):
         mock_module = types.ModuleType("mlx_whisper")

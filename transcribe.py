@@ -29,10 +29,22 @@ AUDIO_TMP_DIR = Path("/tmp/yt_obsidian_audio")
 WHISPER_MODEL = "mlx-community/whisper-large-v3-turbo"
 DONE_DIR = TRANSCRIPT_DIR / "done"
 
+# Whisperで文字起こしするローカル音声/動画の拡張子
+AUDIO_EXTS = {
+    ".mp3", ".m4a", ".m4b", ".wav", ".aac", ".flac", ".ogg", ".opus",
+    ".mp4", ".mov", ".m4v",
+}
+
 
 def is_youtube_url(url):
     host = urlparse(url).hostname or ""
     return any(h in host for h in ("youtube.com", "youtu.be", "youtube-nocookie.com"))
+
+
+def is_audio_file(path):
+    """ローカルの音声/動画ファイルか判定"""
+    p = Path(path).expanduser()
+    return p.is_file() and p.suffix.lower() in AUDIO_EXTS
 
 
 def url_to_id(url):
@@ -352,6 +364,38 @@ def transcribe_video(video):
     return None
 
 
+def transcribe_local_file(path):
+    """ローカルの音声/動画ファイルをWhisperで文字起こし（yt-dlpを経由しない）"""
+    p = Path(path).expanduser().resolve()
+    uri = f"file://{p}"
+    video = {"id": url_to_id(uri), "title": p.name, "url": uri}
+
+    if is_processed(video["id"]):
+        print(f"  スキップ（処理済み）")
+        return None
+
+    print(f"  Whisperで文字起こし中...")
+    text = None
+    try:
+        import mlx_whisper
+        result = mlx_whisper.transcribe(
+            str(p),
+            path_or_hf_repo=WHISPER_MODEL,
+            language="ja",
+            verbose=False
+        )
+        text = result["text"]
+    except Exception as e:
+        print(f"  文字起こしエラー: {e}")
+        return None
+
+    if text is None or is_hallucinated(text):
+        print(f"  文字起こしに失敗しました（内容が読み取れません）。")
+        return None
+
+    return save_transcript(video, text, source="local-audio")
+
+
 def is_processed(video_id):
     """文字起こし済み or ノート変換済み（done/に移動済み）か判定"""
     return (TRANSCRIPT_DIR / f"{video_id}.txt").exists() or (DONE_DIR / f"{video_id}.txt").exists()
@@ -382,6 +426,15 @@ def main():
         DONE_DIR = TRANSCRIPT_DIR / "done"
 
     setup_dirs()
+
+    if is_audio_file(url):
+        print(f"ローカル音声/動画として処理: {url}\n")
+        if not check_mlx_whisper():
+            sys.exit(1)
+        result = transcribe_local_file(url)
+        if not result:
+            sys.exit(1)
+        return
 
     if not is_youtube_url(url):
         print(f"Web記事として処理: {url}\n")
