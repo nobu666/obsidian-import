@@ -94,15 +94,9 @@ rm -rf "$_AUDIO_TMP"
 echo ""
 echo "=== シンボリックリンク書き込み拒否 ==="
 
-write_note() {
-  local dir="$1" name="$2" content="$3"
-  local dest="${dir}/${name}"
-  if [ -L "$dest" ]; then
-    echo "  ⚠ シンボリックリンクへの書き込みを拒否: ${name}"
-    return 1
-  fi
-  printf '%s\n' "$content" > "$dest"
-}
+# コピーを持たず、実体スクリプトから write_note を抽出して読み込む（本物を検証）
+_SI_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/obsidian-import"
+eval "$(awk '/^write_note\(\) \{/,/^\}/' "$_SI_SCRIPT")"
 
 _WN_TMP=$(mktemp -d)
 _WN_SECRET="$_WN_TMP/secret.txt"
@@ -115,6 +109,11 @@ assert_eq "symlinkリンク先は改変されない" "ORIGINAL" "$(cat "$_WN_SEC
 write_note "$_WN_TMP" "normal.md" "HELLO" && r=wrote || r=refused
 assert_eq "通常ファイルは書ける(戻り値)" "wrote" "$r"
 assert_eq "通常ファイルの内容" "HELLO" "$(cat "$_WN_TMP/normal.md")"
+# 既存の通常ファイルは上書きせず連番で保存（P2: 無確認上書き対策）
+printf 'KEEP\n' > "$_WN_TMP/dup.md"
+write_note "$_WN_TMP" "dup.md" "NEW"
+assert_eq "既存ファイルは上書きされない" "KEEP" "$(cat "$_WN_TMP/dup.md")"
+assert_eq "新内容は連番ファイルへ" "NEW" "$(cat "$_WN_TMP/dup-1.md")"
 rm -rf "$_WN_TMP"
 
 # --- 本文抽出テスト ---

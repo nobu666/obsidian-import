@@ -144,11 +144,31 @@ ${excerpt}" | claude -p 2>&1 | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
 write_note() {
   local dir="$1" name="$2" content="$3"
   local dest="${dir}/${name}"
+  # シンボリックリンク宛ては拒否（リンク先汚染防止）
   if [ -L "$dest" ]; then
     echo "  ⚠ シンボリックリンクへの書き込みを拒否: ${name}"
     return 1
   fi
-  printf '%s\n' "$content" > "$dest"
+  # 既存の通常ファイルは上書きしない（インジェクション等による既存ノート破壊を防ぐ）。
+  # 連番で衝突を回避し、新しい内容は失わない。
+  if [ -e "$dest" ]; then
+    local stem ext n=1 cand
+    case "$name" in
+      *.md) stem="${name%.md}"; ext=".md" ;;
+      *)    stem="$name";       ext="" ;;
+    esac
+    while cand="${dir}/${stem}-${n}${ext}"; [ -e "$cand" ] || [ -L "$cand" ]; do
+      n=$((n + 1))
+    done
+    echo "  ⚠ 既存ファイルがあるため連番で保存: $(basename "$cand")"
+    dest="$cand"
+  fi
+  # TOCTOU緩和: noclobber で「存在したら書かない」。チェック後に symlink/ファイルを
+  # 差し込まれても上書きしない（サブシェルで noclobber を局所化）。
+  if ! ( set -o noclobber; printf '%s\n' "$content" > "$dest" ) 2>/dev/null; then
+    echo "  ⚠ 書き込み先が競合したため中止: $(basename "$dest")"
+    return 1
+  fi
 }
 
 echo "=== Step 1/2: テキスト抽出 ==="
