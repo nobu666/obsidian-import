@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 REPO_DIR="${INSTALL_DIR:-$HOME/repos}/obsidian-import"
 SCRIPTS_DIR="$HOME/scripts"
@@ -30,7 +30,12 @@ echo "--- Python venv ---"
 if [ ! -d "$VENV_DIR" ]; then
   python3.12 -m venv "$VENV_DIR"
 fi
-"$VENV_DIR/bin/pip" install -q mlx-whisper "markitdown[all]"
+# 直接依存はバージョン固定（再現性・供給網対策。更新は意図的に bump する）。
+# markitdown は [all] ではなく実際に扱う型に必要な extra だけに絞り、
+# Azure SDK 等の不要依存（攻撃面）を入れない。
+"$VENV_DIR/bin/pip" install -q \
+  "mlx-whisper==0.4.3" \
+  "markitdown[pdf,docx,pptx,xlsx,xls,audio-transcription]==0.1.6"
 
 # シンボリックリンク
 echo ""
