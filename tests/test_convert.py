@@ -232,3 +232,12 @@ class TestZipBomb:
         # MarkItDownを触る前に弾く（呼ばれたら失敗させる）
         monkeypatch.setattr(convert, "MarkItDown", lambda: (_ for _ in ()).throw(AssertionError("zipは展開前に弾くべき")))
         assert convert.convert(str(bomb), tmp_path) is False
+
+    def test_convert_rejects_ooxml_bomb_by_content(self, tmp_path, monkeypatch):
+        # docx 拡張子でも中身がzip爆弾なら弾く（OOXMLはZIPコンテナ）
+        import zipfile
+        bomb = tmp_path / "evil.docx"
+        with zipfile.ZipFile(bomb, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("word/document.xml", b"\0" * (5 * 1024 * 1024))
+        monkeypatch.setattr(convert, "MarkItDown", lambda: (_ for _ in ()).throw(AssertionError("展開前に弾くべき")))
+        assert convert.convert(str(bomb), tmp_path) is False

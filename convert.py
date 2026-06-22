@@ -103,11 +103,15 @@ def convert(source, output_dir):
         except UnsafeURLError as e:
             print(f"  アクセスをブロックしました: {e}")
             return False
-    elif str(source).lower().endswith(".zip"):
-        reason = check_zip_safe(source)
-        if reason:
-            print(f"  zipを拒否: {reason}")
-            return False
+    else:
+        # .zip だけでなく docx/pptx/xlsx 等の OOXML も中身は ZIP アーカイブなので、
+        # 拡張子でなく「中身がzipか」で判定して zip爆弾を一律に弾く。
+        import zipfile
+        if Path(source).is_file() and zipfile.is_zipfile(source):
+            reason = check_zip_safe(source)
+            if reason:
+                print(f"  zip系ファイルを拒否: {reason}")
+                return False
 
     md = MarkItDown()
     try:
