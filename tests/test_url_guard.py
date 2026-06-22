@@ -62,6 +62,14 @@ def test_public_host_allowed():
     assert ips == ["93.184.216.34"]
 
 
+@pytest.mark.parametrize("ip", ["::1", "fe80::1", "::", "::ffff:127.0.0.1", "::ffff:10.0.0.1", "::ffff:169.254.169.254"])
+def test_getaddrinfo_resolved_ipv6_internal_blocked(ip):
+    # ホストが内部向けIPv6(IPv4-mapped含む)に解決されたらブロック
+    with patch("url_guard.socket.getaddrinfo", return_value=_gai(ip)):
+        with pytest.raises(UnsafeURLError):
+            assert_safe_url("http://evil.example.test/")
+
+
 def test_hostname_resolving_to_private_blocked():
     # 公開ドメインに見えても内部IPに解決されたらブロック（DNS仕込み対策）
     with patch("url_guard.socket.getaddrinfo", return_value=_gai("10.1.2.3")):

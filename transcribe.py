@@ -7,9 +7,11 @@ Web記事のテキスト抽出にも対応。
 """
 
 import argparse
+import atexit
 import hashlib
 import os
 import re
+import shutil
 import subprocess
 import json
 import sys
@@ -30,9 +32,11 @@ DEFAULT_OUTPUT_DIR = Path.home() / "Documents/Obsidian/Vault/YouTube"
 OBSIDIAN_OUTPUT_DIR = DEFAULT_OUTPUT_DIR
 TRANSCRIPT_DIR = OBSIDIAN_OUTPUT_DIR / ".transcripts"
 # 予測可能な /tmp 固定パスは共有マシンで symlink 先取りの余地があるため、
-# プロセスごとのユーザー専用一時dir(mode 0700)を使う。
+# プロセスごとのユーザー専用一時dir(mode 0700)を使う。終了時に後始末する。
 AUDIO_TMP_DIR = Path(tempfile.mkdtemp(prefix="yt_obsidian_audio_"))
 SUBS_TMP_DIR = Path(tempfile.mkdtemp(prefix="yt_subs_"))
+atexit.register(shutil.rmtree, AUDIO_TMP_DIR, ignore_errors=True)
+atexit.register(shutil.rmtree, SUBS_TMP_DIR, ignore_errors=True)
 WHISPER_MODEL = "mlx-community/whisper-large-v3-turbo"
 DONE_DIR = TRANSCRIPT_DIR / "done"
 
@@ -330,6 +334,8 @@ def resolve_article_url(url):
                 print(f"  Article URL検出: {resolved}")
                 return resolved
     except Exception:
+        # safe_head が内部IPへのリダイレクトを UnsafeURLError で弾いた場合もここに来る。
+        # 元の url は呼び出し側(fetch_article)で検証済みのため、フォールバックは安全。
         pass
     return url
 

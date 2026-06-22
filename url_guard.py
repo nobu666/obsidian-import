@@ -29,6 +29,11 @@ class UnsafeURLError(ValueError):
 
 def _ip_is_blocked(ip_str):
     ip = ipaddress.ip_address(ip_str)
+    # IPv4-mapped IPv6 (::ffff:a.b.c.d) は内側のIPv4で判定する。
+    # Python<3.13 では IPv6Address("::ffff:127.0.0.1").is_private が False を返す不備があり、
+    # 明示的に展開しないと内部IPを取りこぼす。
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
     return (
         ip.is_private
         or ip.is_loopback

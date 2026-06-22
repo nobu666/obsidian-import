@@ -40,6 +40,15 @@ bash tests/test_obsidian_import.sh                 # シェルスクリプトの
 3. ファイル名は `.md` 拡張子・パス区切りなし・`..` なしをバリデーション
 4. 外部コンテンツは `<transcript>` タグで囲み、データ境界を明示
 
+## 【MUST】push 前のセキュリティレビュー
+
+外部コンテンツ（URL・ファイル・動画字幕）を処理するツールのため、**コードを変更したら push する前に必ずセキュリティレビューを行う**こと。
+
+- 変更差分（`git diff <base>..HEAD`）を対象に、Subagent または `/differential-review` スキルで観点別にレビューする
+- 重点観点: **SSRF**（URL fetch 経路）、**コマンドインジェクション**（yt-dlp/subprocess）、**パストラバーサル**（書き込み先・ファイル名）、**プロンプトインジェクション**（`claude -p` への外部入力）、**リソース枯渇**（zip/アーカイブ爆弾・巨大入力）、**一時ファイルの先取り**（symlink/TOCTOU）
+- **Critical/High が残っている間は push しない**。Low/Medium は受容するなら理由を明記する
+- レビュー後、テスト（pytest + シェル）が全パスすることを確認してから push する
+
 ## 注意事項
 
 - `mlx-whisper` を `openai-whisper` に差し替えないこと（Apple Silicon 最適化が前提）

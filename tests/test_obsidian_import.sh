@@ -114,6 +114,11 @@ printf 'KEEP\n' > "$_WN_TMP/dup.md"
 write_note "$_WN_TMP" "dup.md" "NEW"
 assert_eq "既存ファイルは上書きされない" "KEEP" "$(cat "$_WN_TMP/dup.md")"
 assert_eq "新内容は連番ファイルへ" "NEW" "$(cat "$_WN_TMP/dup-1.md")"
+# パストラバーサル名は関数自体でも拒否（多層防御）
+write_note "$_WN_TMP" "../escape.md" "X" && r=wrote || r=refused
+assert_eq "../を含む名前は拒否" "refused" "$r"
+write_note "$_WN_TMP" "sub/evil.md" "X" && r=wrote || r=refused
+assert_eq "パス区切りを含む名前は拒否" "refused" "$r"
 rm -rf "$_WN_TMP"
 
 # --- 本文抽出テスト ---

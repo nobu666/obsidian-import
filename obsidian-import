@@ -143,6 +143,10 @@ ${excerpt}" | claude -p 2>&1 | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
 # 汚染を防ぐため拒否する。printf を使い echo の -n/-e フラグ解釈も避ける。
 write_note() {
   local dir="$1" name="$2" content="$3"
+  # name にパス区切り/.. があれば拒否（多層防御。呼び出し側でも検証済みだが関数自体でも守る）
+  case "$name" in
+    */*|*..*) echo "  ⚠ 不正なファイル名を拒否: ${name}"; return 1 ;;
+  esac
   local dest="${dir}/${name}"
   # シンボリックリンク宛ては拒否（リンク先汚染防止）
   if [ -L "$dest" ]; then
