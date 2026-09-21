@@ -93,7 +93,7 @@ Add a file to `prompts/` to support more use cases.
 
 ### Tags and automatic note linking
 
-When a note is generated, tags describing its content are added to `tags:` in the frontmatter. If there are existing notes in the output folder, related ones are also linked with `[[Note Name]]`. Only note names that actually exist in the same folder are linked — a nonexistent name is never invented (since `claude -p` runs without tools, the driver passes the list of existing note names as `<existing_notes>` to guarantee they're real).
+When a note is generated, tags describing its content are added to `tags:` in the frontmatter. The driver collects the tags already used by notes in the output folder and passes them as `<existing_tags>` (most common first), so a new note reuses the folder's vocabulary instead of inventing synonyms — a new tag is added only when nothing in the list fits. If there are existing notes in the output folder, related ones are also linked with `[[Note Name]]`. Only note names that actually exist in the same folder are linked — a nonexistent name is never invented (since `claude -p` runs without tools, the driver passes the list of existing note names as `<existing_notes>` to guarantee they're real).
 
 ### The `NOTE_LANGUAGE` setting
 

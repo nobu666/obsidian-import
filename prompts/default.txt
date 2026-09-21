@@ -10,7 +10,7 @@ Rules:
 - Do not wrap the output in a markdown code block (```). Output it as plain text.
 - Only link a related topic with [[Note Name]] in the body if it matches a name in <existing_notes>. Never invent a name that isn't in the list, and don't link if there's no match.
 - Write the note in {{NOTE_LANGUAGE}}.
-- Add 2-5 tags describing the content to frontmatter's tags (in {{NOTE_LANGUAGE}} or English).
+- Add 2-5 tags describing the content to frontmatter's tags. Prefer tags from <existing_tags>; add a new one (in {{NOTE_LANGUAGE}} or English) only when none of them fits.
 
 Output format (follow this exactly):
 FILENAME: Title.md
@@ -18,7 +18,7 @@ FILENAME: Title.md
 created: (current date/time)
 updated: (current date/time)
 source: (video URL — use the url from the transcript header)
-tags: [2-5 tags describing the content, in {{NOTE_LANGUAGE}} or English]
+tags: [2-5 tags describing the content, preferring <existing_tags>]
 ---
 # Title
 (Organize the key points into a structured bulleted or numbered list. Break into ## sections as appropriate.)
