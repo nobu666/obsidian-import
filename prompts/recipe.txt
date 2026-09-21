@@ -19,7 +19,8 @@ FILENAME: Dish Name.md
 created: (current date/time)
 updated: (current date/time)
 source: (video URL — use the url from the transcript header)
-tags: [2-5 tags describing the content, preferring <existing_tags>]
+tags:
+  - (2-5 tags describing the content, one per line, preferring <existing_tags>)
 ---
 # Dish Name
 * Ingredient Amount

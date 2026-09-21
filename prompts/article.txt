@@ -17,7 +17,8 @@ FILENAME: Title.md
 created: (current date/time)
 updated: (current date/time)
 source: (original URL — use the url from the text header)
-tags: [2-5 tags describing the content, preferring <existing_tags>]
+tags:
+  - (2-5 tags describing the content, one per line, preferring <existing_tags>)
 ---
 # Title (in {{NOTE_LANGUAGE}})
 
