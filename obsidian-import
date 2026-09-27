@@ -192,10 +192,24 @@ collect_existing_tags() {
   ' {} + 2>/dev/null | sort | uniq -c | sort -rn | head -n 100 | sed 's/^ *[0-9]* //'
 }
 
+# Overwrite the created:/updated: values in the leading frontmatter with a real
+# timestamp. claude -p runs without tools, so it can't read the clock and guesses
+# (typically 00:00 or 12:00). Lines outside the frontmatter are left untouched.
+stamp_times() {
+  printf '%s\n' "$1" | awk -v now="$2" '
+    state == 0 && /^---[ \t]*$/ { state = 1; print; next }
+    state == 0 && NF            { state = 2 }
+    state == 1 && /^---[ \t]*$/ { state = 2; print; next }
+    state == 1 && /^(created|updated):/ { sub(/:.*/, ": " now) }
+    { print }
+  '
+}
+
 # Write out a note. Refuses to write through a symlinked output path (e.g. ~/.zshrc)
 # to avoid clobbering the link target. Uses printf to avoid echo's -n/-e flag quirks.
 write_note() {
   local dir="$1" name="$2" content="$3"
+  content=$(stamp_times "$content" "$(date '+%Y-%m-%d %H:%M')")
   # Reject a name containing a path separator or ".." (defense in depth; the caller
   # already validates this, but the function guards itself too)
   case "$name" in

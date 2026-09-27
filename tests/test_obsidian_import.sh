@@ -126,6 +126,7 @@ echo "=== Symlink write rejection ==="
 
 # Don't keep a copy; extract and load write_note from the real script (tests the real thing)
 _SI_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/obsidian-import"
+eval "$(awk '/^stamp_times\(\) \{/,/^\}/' "$_SI_SCRIPT")"
 eval "$(awk '/^write_note\(\) \{/,/^\}/' "$_SI_SCRIPT")"
 
 _WN_TMP=$(mktemp -d)
@@ -149,6 +150,41 @@ write_note "$_WN_TMP" "../escape.md" "X" && r=wrote || r=refused
 assert_eq "a name containing ../ is rejected" "refused" "$r"
 write_note "$_WN_TMP" "sub/evil.md" "X" && r=wrote || r=refused
 assert_eq "a name containing a path separator is rejected" "refused" "$r"
+rm -rf "$_WN_TMP"
+
+# --- created/updated timestamp tests ---
+echo ""
+echo "=== created/updated timestamps ==="
+
+_ST_IN='---
+created: 2026-09-27 00:00
+updated: 12:00
+source: https://example.com
+---
+# Dish
+
+created: keep this body line'
+_ST_WANT='---
+created: 2026-09-27 23:46
+updated: 2026-09-27 23:46
+source: https://example.com
+---
+# Dish
+
+created: keep this body line'
+assert_eq "frontmatter created/updated are overwritten, body is untouched" \
+  "$_ST_WANT" "$(stamp_times "$_ST_IN" "2026-09-27 23:46")"
+assert_eq "a note without frontmatter is unchanged" \
+  "created: 00:00" "$(stamp_times "created: 00:00" "2026-09-27 23:46")"
+
+_WN_TMP=$(mktemp -d)
+_ST_BEFORE="created: $(date '+%Y-%m-%d %H:%M')"
+write_note "$_WN_TMP" "t.md" "$_ST_IN"
+_ST_AFTER="created: $(date '+%Y-%m-%d %H:%M')"
+_ST_GOT=$(sed -n 2p "$_WN_TMP/t.md")
+# Accept either side of a minute boundary crossed during the write
+[ "$_ST_GOT" = "$_ST_AFTER" ] && _ST_BEFORE="$_ST_AFTER"
+assert_eq "write_note stamps the current time" "$_ST_BEFORE" "$_ST_GOT"
 rm -rf "$_WN_TMP"
 
 # --- Body extraction tests ---
