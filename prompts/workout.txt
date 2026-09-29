@@ -15,8 +15,8 @@ Rules:
 Output format (follow this exactly):
 FILENAME: Menu Name.md
 ---
-created: (current date/time)
-updated: (current date/time)
+created: (today's date only, e.g. 2026-09-29 — the script fills in the exact time, so don't add a note about it)
+updated: (today's date only, same as created)
 source: (video URL — use the url from the transcript header)
 tags:
   - (2-5 tags describing the content, one per line, preferring <existing_tags>)
