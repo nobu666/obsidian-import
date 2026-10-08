@@ -278,8 +278,33 @@ def get_description(video):
         capture_output=True, text=True
     )
     if result.returncode == 0 and len(result.stdout.strip()) >= 50:
-        return result.stdout.strip()
+        # The description is attacker-controlled; keep it from closing the
+        # <transcript> data boundary that obsidian-import wraps around the file.
+        return re.sub(r"</\s*transcript\s*>", "</transcript_>", result.stdout.strip(), flags=re.I)
     return None
+
+
+_INGREDIENTS_RE = re.compile(r"材料|食材|ingredients", re.I)
+_STEPS_RE = re.compile(r"作り方|手順|工程|directions|instructions|method|steps", re.I)
+# [^\S\n] = whitespace except newline: a plain \s* would swallow following newlines and
+# make the scan quadratic on descriptions with many blank lines.
+_NUMBERED_RE = re.compile(r"^[^\S\n]*(?:\d+[^\S\n]*[.．、)）]|[①-⑳])", re.M)
+
+
+def looks_like_full_recipe(desc):
+    """Heuristic: the description lists ingredients and, after a steps heading, 3+ numbered steps.
+
+    ponytail: keyword + line-count guess; a miss only costs a Whisper run, a false hit
+    skips Whisper for a description that lacks some steps. Tighten if that ever bites.
+    """
+    steps = _STEPS_RE.search(desc)
+    return bool(_INGREDIENTS_RE.search(desc) and steps
+                and len(_NUMBERED_RE.findall(desc, steps.end())) >= 3)
+
+
+def _with_description(text, desc):
+    """Append the description to a transcript so the note prompt can cross-check amounts"""
+    return f"{text}\n\n[video description]\n{desc}" if desc else text
 
 
 def save_transcript(video, text, source="whisper"):
@@ -487,21 +512,24 @@ def transcribe_video(video):
         desc_text = get_description(video)
         if desc_text:
             print(f"  Appended the description")
-            # The description is attacker-controlled; keep it from closing the
-            # <transcript> data boundary that obsidian-import wraps around the file.
-            desc_text = re.sub(r"</\s*transcript\s*>", "</transcript_>", desc_text, flags=re.I)
-            sub_text = f"{sub_text}\n\n[video description]\n{desc_text}"
-        return save_transcript(video, sub_text, source=source)
+        return save_transcript(video, _with_description(sub_text, desc_text), source=source)
 
-    # 2. Length limit check (Whisper is heavy; this replaces the old YouTube-only
+    # 2. No subtitles: look at the description before spending time on Whisper. If it
+    # already holds the ingredients and the numbered steps, Whisper adds little.
+    print(f"  No subtitles. Checking the description...")
+    desc_text = get_description(video)
+    if desc_text and looks_like_full_recipe(desc_text):
+        print(f"  The description looks like a complete recipe. Skipping Whisper")
+        return save_transcript(video, desc_text, source="youtube-description")
+
+    # 3. Length limit check (Whisper is heavy; this replaces the old YouTube-only
     # proxy constraint with the real one)
     max_minutes = _get_whisper_max_minutes()
     duration = video.get("duration") or None
     if max_minutes > 0 and duration:
         if duration > max_minutes * 60:
             mins = duration // 60
-            print(f"  Skipping Whisper — video is too long ({mins}min > {max_minutes}min limit). Checking the description...")
-            desc_text = get_description(video)
+            print(f"  Skipping Whisper — video is too long ({mins}min > {max_minutes}min limit).")
             if desc_text:
                 print(f"  Got it from the description")
                 return save_transcript(video, desc_text, source="youtube-description")
@@ -510,8 +538,8 @@ def transcribe_video(video):
     elif not duration:
         print(f"  Duration unknown, running Whisper anyway")
 
-    # 3. Transcribe with Whisper (slow)
-    print(f"  No subtitles. Transcribing with Whisper...")
+    # 4. Transcribe with Whisper (slow)
+    print(f"  Transcribing with Whisper...")
     audio_path = download_audio(video)
     if not audio_path:
         return None
@@ -532,13 +560,12 @@ def transcribe_video(video):
     audio_path.unlink(missing_ok=True)
 
     if text is not None and not is_hallucinated(text):
-        return save_transcript(video, text)
+        if desc_text:
+            print(f"  Appended the description")
+        return save_transcript(video, _with_description(text, desc_text))
 
     if text is not None:
-        print(f"  Detected a hallucination. Checking the description...")
-    else:
-        print(f"  Checking the description...")
-    desc_text = get_description(video)
+        print(f"  Detected a hallucination. Falling back to the description...")
     if desc_text:
         print(f"  Got it from the description")
         return save_transcript(video, desc_text, source="youtube-description")
