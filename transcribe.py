@@ -278,9 +278,7 @@ def get_description(video):
         capture_output=True, text=True
     )
     if result.returncode == 0 and len(result.stdout.strip()) >= 50:
-        # The description is attacker-controlled; keep it from closing the
-        # <transcript> data boundary that obsidian-import wraps around the file.
-        return re.sub(r"</\s*transcript\s*>", "</transcript_>", result.stdout.strip(), flags=re.I)
+        return result.stdout.strip()
     return None
 
 
@@ -316,6 +314,10 @@ def save_transcript(video, text, source="whisper"):
     if source != "whisper":
         header += f"\nsource: {_hdr_val(source)}"
     content = f"{header}\n---\n{text}"
+    # Everything here (title, subtitles, Whisper output, description, article text) is
+    # attacker-controlled; keep it from closing the <transcript> data boundary that
+    # obsidian-import wraps around the whole file. One pass covers every data source.
+    content = re.sub(r"</\s*transcript\s*>", "</transcript_>", content, flags=re.I)
     tmp_fd, tmp_path = tempfile.mkstemp(dir=TRANSCRIPT_DIR, suffix=".tmp")
     try:
         with open(tmp_fd, "w", encoding="utf-8") as f:
