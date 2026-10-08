@@ -482,6 +482,15 @@ def transcribe_video(video):
             print(f"  Got them from English subtitles")
         else:
             print(f"  Got them from subtitles")
+        # Subtitles often misrecognize amounts; the creator's description frequently
+        # lists the ingredients exactly. Append it so the note prompt can cross-check.
+        desc_text = get_description(video)
+        if desc_text:
+            print(f"  Appended the description")
+            # The description is attacker-controlled; keep it from closing the
+            # <transcript> data boundary that obsidian-import wraps around the file.
+            desc_text = re.sub(r"</\s*transcript\s*>", "</transcript_>", desc_text, flags=re.I)
+            sub_text = f"{sub_text}\n\n[video description]\n{desc_text}"
         return save_transcript(video, sub_text, source=source)
 
     # 2. Length limit check (Whisper is heavy; this replaces the old YouTube-only
