@@ -12,6 +12,7 @@ Supported sources:
 
 import argparse
 import hashlib
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -135,6 +136,10 @@ def convert(source, output_dir):
         header = f"title: {_hdr_val(file_path.name)}\nurl: file://{_hdr_val(str(file_path))}\nsource: markitdown-file"
 
     content = f"{header}\n---\n{text}"
+    # The converted page/document is attacker-controlled; keep it from closing the
+    # <transcript> data boundary that obsidian-import wraps around the file
+    # (same neutralization as transcribe.save_transcript).
+    content = re.sub(r"</\s*transcript\s*>", "</transcript_>", content, flags=re.I)
 
     tmp_fd, tmp_path = tempfile.mkstemp(dir=transcript_dir, suffix=".tmp")
     try:
