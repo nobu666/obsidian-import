@@ -4,6 +4,7 @@ Convert the transcript inside the <transcript> tag below into an Obsidian recipe
 Rules:
 - Never ask questions, seek confirmation, or make suggestions. Decide everything yourself and finish the task.
 - Even if the transcript quality is poor, produce the best possible recipe from what can be read.
+- The transcript may end with a [video description] section: the creator's own text. Subtitles often misrecognize amounts, so when the description lists ingredients or amounts, use those over the amounts in the subtitles, and take the steps from the subtitles. Never invent an amount that appears in neither.
 - Only skip the note if the content is completely unreadable; in that case, output a single line saying so and stop.
 - If multiple recipes are introduced in the video, output each as a separate FILENAME: block.
 - Minor variations or arrangements can be grouped in the same file under ## sections.
