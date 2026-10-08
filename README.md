@@ -213,6 +213,7 @@ cp ~/repos/obsidian-import/SKILL.md ~/.claude/skills/obsidian-import/SKILL.md
 - Video transcription prefers subtitles (manual, then auto-generated) first. Only a video with no subtitles falls back to Whisper large-v3-turbo (~3GB). A video longer than `WHISPER_MAX_MINUTES` (default 20 min) skips Whisper and falls back to the description
 - A Whisper hallucination (the same phrase repeated) is detected automatically and falls back to the description
 - When subtitles are used, the video description is appended to the transcript as a `[video description]` section. The recipe prompt prefers amounts listed there over amounts in the subtitles, which are often misrecognized
+- With no subtitles, the description is checked before Whisper. If it lists ingredients and 3+ numbered steps after a steps heading (`作り方` / `Directions` etc.), it is used as the transcript and Whisper is skipped. Otherwise Whisper runs and the description is appended to its output the same way
 - A local audio/video file is transcribed with Whisper (mlx, tuned for Japanese). `.mp3/.m4a/.wav` etc. prefer Whisper over MarkItDown
 - Document conversion uses MarkItDown. Supports PDF, PPTX, DOCX, XLSX, images, and URLs
 - An already-processed source is skipped, so you can resume after an interruption
