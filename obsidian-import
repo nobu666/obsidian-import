@@ -287,7 +287,7 @@ fi
 
 echo ""
 echo "=== Step 2/2: Note conversion ==="
-COUNT=$(find "$TRANSCRIPT_DIR" -maxdepth 1 -name '*.txt' 2>/dev/null | wc -l | tr -d ' ')
+COUNT=$(find "$TRANSCRIPT_DIR" -maxdepth 1 -name '*.txt' | wc -l | tr -d ' ')
 if [ "$COUNT" = "0" ]; then
   echo "No transcript files found. Either everything is already done, or Step 1 failed."
   exit 0
