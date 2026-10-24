@@ -126,6 +126,7 @@ source: https://www.youtube.com/watch?v=VIDEO_ID
 ```
 
 Key points:
+- Write the note (dish name, ingredients, steps, notes) in the language given by `NOTE_LANGUAGE` — run `echo "${NOTE_LANGUAGE:-English}"` to read it, don't guess from the transcript. Only the frontmatter keys and URLs stay as-is. This is the same variable the CLI passes to the prompts (see README)
 - Put the video URL in frontmatter's `source`
 - `created` / `updated` are the current date/time — run `date '+%Y-%m-%d %H:%M'` to get it, don't guess (the system prompt's date context has no time component)
 - Ingredients are a bulleted list starting with `* ` (indent for subgroups)

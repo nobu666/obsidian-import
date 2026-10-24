@@ -103,7 +103,7 @@ Prompts write notes in English by default. Set the `NOTE_LANGUAGE` environment v
 NOTE_LANGUAGE=Japanese ~/scripts/obsidian-import https://www.youtube.com/watch?v=XXXXX
 ```
 
-Export it in your shell profile to make it the default for every run.
+Export it in your shell profile to make it the default for every run. The skill (`SKILL.md`, run inside Claude Code) reads the same variable, so one setting covers both paths.
 
 ### Prompt file format
 
